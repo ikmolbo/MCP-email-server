@@ -124,23 +124,48 @@ export function getAttachments(messagePart: GmailMessagePart): EmailAttachment[]
   return attachments;
 }
 
-// Format date for Gmail query based on hours ago
+// Format date for Gmail query
 export function getDateQuery(hoursAgo: number): string {
   const date = new Date();
   date.setHours(date.getHours() - hoursAgo);
   return date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
 }
 
-// Get today's date for Gmail query
+// Function to get today's date in Gmail query format (YYYY/MM/DD)
 export function getTodayDateQuery(): string {
-  return new Date().toISOString().split('T')[0]; // Format as YYYY-MM-DD
+  const today = new Date();
+  return `${today.getFullYear()}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getDate().toString().padStart(2, '0')}`;
 }
 
-// Format specific date for Gmail query (accepts YYYY-MM-DD format)
-export function formatDateForQuery(date: string): string {
-  // Validate date format
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    throw new Error('Date must be in YYYY-MM-DD format');
+// Function to get tomorrow's date in Gmail query format
+export function getTomorrowDateQuery(): string {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return `${tomorrow.getFullYear()}/${(tomorrow.getMonth() + 1).toString().padStart(2, '0')}/${tomorrow.getDate().toString().padStart(2, '0')}`;
+}
+
+// Function to get yesterday's date in Gmail query format
+export function getYesterdayDateQuery(): string {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return `${yesterday.getFullYear()}/${(yesterday.getMonth() + 1).toString().padStart(2, '0')}/${yesterday.getDate().toString().padStart(2, '0')}`;
+}
+
+// Function to create a Gmail query for emails received today
+export function getTodayQuery(): string {
+  return `after:${getTodayDateQuery()} before:${getTomorrowDateQuery()}`;
+}
+
+// Function to create a Gmail query for emails received yesterday
+export function getYesterdayQuery(): string {
+  return `after:${getYesterdayDateQuery()} before:${getTodayDateQuery()}`;
+}
+
+// Function to check if a query contains unread filter and ensure it uses label:unread
+export function ensureCorrectUnreadSyntax(query: string): string {
+  if (!query) return query;
+  if (query.includes('is:unread')) {
+    return query.replace(/is:unread/g, 'label:unread');
   }
-  return date;
+  return query;
 } 

@@ -23,9 +23,13 @@ import {
   extractEmailContent, 
   getAttachments, 
   getDateQuery,
+  GmailMessagePart,
+  getTodayQuery,
+  getYesterdayQuery,
   getTodayDateQuery,
-  formatDateForQuery,
-  GmailMessagePart 
+  getTomorrowDateQuery,
+  getYesterdayDateQuery,
+  ensureCorrectUnreadSyntax 
 } from './utils.js';
 import { authenticate as googleAuthenticate } from '@google-cloud/local-auth';
 import { dirname } from 'path';
@@ -58,14 +62,14 @@ const SendEmailSchema = z.object({
 });
 
 const GetRecentEmailsSchema = z.object({
-  hours: z.number().default(24).describe("Number of hours to look back (default: 24)"),
+  hours: z.number().optional().default(24).describe("Number of hours to look back (default: 24, can be omitted when using date filters in query)"),
   maxResults: z.number().default(10).describe("Maximum number of results to return (default: 10)"),
-  query: z.string().optional().describe("Additional Gmail search query (e.g., 'from:example@gmail.com')"),
+  query: z.string().optional().describe("Additional Gmail search query (e.g., 'label:unread', 'after:YYYY/MM/DD')"),
   pageToken: z.string().optional().describe("Token for the next page of results"),
   category: z.enum(['primary', 'social', 'promotions', 'updates', 'forums']).optional()
     .describe("Filter by Gmail category (primary, social, promotions, updates, forums)"),
-  date: z.string().optional().describe("Specific date to filter emails (format: YYYY-MM-DD). If provided, overrides hours parameter"),
-  useToday: z.boolean().optional().default(false).describe("If true, filters emails from today only (overrides hours and date parameters)")
+  timeFilter: z.enum(['today', 'yesterday', 'last24h']).optional()
+    .describe("Predefined time filter: 'today' (calendar date), 'yesterday' (calendar date), or 'last24h' (24 hour window)")
 });
 
 const ReadEmailSchema = z.object({
@@ -73,11 +77,13 @@ const ReadEmailSchema = z.object({
 });
 
 const SearchEmailsSchema = z.object({
-  query: z.string().describe("Gmail search query (e.g., 'from:example@gmail.com')"),
+  query: z.string().describe("Gmail search query (e.g., 'label:unread', 'after:YYYY/MM/DD')"),
   maxResults: z.number().optional().default(10).describe("Maximum number of results to return"),
   pageToken: z.string().optional().describe("Token for the next page of results"),
   category: z.enum(['primary', 'social', 'promotions', 'updates', 'forums']).optional()
-    .describe("Filter by Gmail category (primary, social, promotions, updates, forums)")
+    .describe("Filter by Gmail category (primary, social, promotions, updates, forums)"),
+  timeFilter: z.enum(['today', 'yesterday', 'last24h']).optional()
+    .describe("Predefined time filter: 'today' (calendar date), 'yesterday' (calendar date), or 'last24h' (24 hour window)")
 });
 
 // Load OAuth credentials
@@ -352,42 +358,52 @@ async function main() {
           case "get_recent_emails": {
             const args = GetRecentEmailsSchema.parse(request.params.arguments);
             
-            let dateQuery: string;
-            let dateDescription: string;
+            // Start with empty query or user-provided query
+            let fullQuery = args.query || '';
             
-            if (args.useToday) {
-              // Filter by today's date
-              const todayDate = getTodayDateQuery();
-              dateQuery = `after:${todayDate}`;
-              dateDescription = "today";
-            } else if (args.date) {
-              // Filter by specific date
-              try {
-                const formattedDate = formatDateForQuery(args.date);
-                dateQuery = `after:${formattedDate} before:${formattedDate}+1d`;
-                dateDescription = `on ${args.date}`;
-              } catch (error) {
-                return {
-                  content: [{
-                    type: "text",
-                    text: `Invalid date format: ${args.date}. Please use YYYY-MM-DD format.`
-                  }]
-                };
+            // Apply correct unread syntax
+            fullQuery = ensureCorrectUnreadSyntax(fullQuery);
+            
+            // Handle predefined time filters (today, yesterday, last24h)
+            if (args.timeFilter) {
+              console.error(`Using predefined time filter: ${args.timeFilter}`);
+              
+              if (args.timeFilter === 'today') {
+                // Today = current calendar date (00:00 to 23:59)
+                const todayQuery = getTodayQuery();
+                fullQuery = fullQuery ? `${todayQuery} ${fullQuery}` : todayQuery;
+                console.error(`Getting emails from today (${getTodayDateQuery()}) with query: ${fullQuery}`);
+              } 
+              else if (args.timeFilter === 'yesterday') {
+                // Yesterday = previous calendar date (00:00 to 23:59)
+                const yesterdayQuery = getYesterdayQuery();
+                fullQuery = fullQuery ? `${yesterdayQuery} ${fullQuery}` : yesterdayQuery;
+                console.error(`Getting emails from yesterday (${getYesterdayDateQuery()}) with query: ${fullQuery}`);
               }
-            } else {
-              // Filter by hours
-              console.error(`Getting emails from the last ${args.hours} hours`);
-              dateQuery = `after:${getDateQuery(args.hours)}`;
-              dateDescription = `from the last ${args.hours} hours`;
+              else if (args.timeFilter === 'last24h') {
+                // Last 24 hours = rolling 24 hour window
+                const dateQuery = `after:${getDateQuery(24)}`;
+                fullQuery = fullQuery ? `${dateQuery} ${fullQuery}` : dateQuery;
+                console.error(`Getting emails from the last 24 hours with query: ${fullQuery}`);
+              }
+            } 
+            // Check for explicit date filters in query
+            else if (fullQuery.includes('after:') || fullQuery.includes('before:') || 
+                    fullQuery.includes('newer_than:') || fullQuery.includes('older_than:')) {
+              console.error(`Using date filter from query: ${fullQuery}`);
             }
-            
-            // Make sure unread filter uses label:unread if specified as is:unread
-            let queryString = args.query || "";
-            if (queryString.includes("is:unread")) {
-              queryString = queryString.replace("is:unread", "label:unread");
+            // Default to hours if provided
+            else if (args.hours) {
+              const dateQuery = `after:${getDateQuery(args.hours)}`;
+              fullQuery = fullQuery ? `${dateQuery} ${fullQuery}` : dateQuery;
+              console.error(`Getting emails from the last ${args.hours} hours with query: ${fullQuery}`);
             }
-            
-            const fullQuery = queryString ? `${dateQuery} ${queryString}` : dateQuery;
+            // If no time filter specified, default to today
+            else {
+              const todayQuery = getTodayQuery();
+              fullQuery = fullQuery ? `${todayQuery} ${fullQuery}` : todayQuery;
+              console.error(`No time filter specified, defaulting to today (${getTodayDateQuery()}) with query: ${fullQuery}`);
+            }
             
             const gmailClient = new GmailClientWrapper(oauth2Client);
             const result = await gmailClient.listMessages({
@@ -398,22 +414,68 @@ async function main() {
             });
             
             if (result.items.length === 0) {
+              // Customize message based on time filter
+              let timeDescription: string;
+              if (args.timeFilter === 'today') {
+                timeDescription = `today (${getTodayDateQuery()})`;
+              } else if (args.timeFilter === 'yesterday') {
+                timeDescription = `yesterday (${getYesterdayDateQuery()})`;
+              } else if (args.timeFilter === 'last24h') {
+                timeDescription = `the last 24 hours`;
+              } else if (args.hours) {
+                timeDescription = `the last ${args.hours} hours`;
+              } else if (fullQuery.includes('after:') || fullQuery.includes('before:')) {
+                timeDescription = `matching date filter: ${fullQuery}`;
+              } else {
+                timeDescription = `today (${getTodayDateQuery()})`;
+              }
+              
+              let noResultsMessage = `No emails found from ${timeDescription}`;
+              if (args.category) {
+                noResultsMessage += ` in category ${args.category}`;
+              }
+              if (fullQuery.includes('label:unread')) {
+                noResultsMessage += ` that are unread`;
+              }
+              
               return {
                 content: [{
                   type: "text",
-                  text: `No emails found ${dateDescription}${args.category ? ` in category ${args.category}` : ''}.${args.query ? ` Query: ${args.query}` : ''}`
+                  text: noResultsMessage
                 }]
               };
             }
             
-            let responseText = `Found ${result.items.length} emails ${dateDescription}${args.category ? ` in category ${args.category}` : ''}${args.query ? ` matching "${args.query}"` : ''}:\n\n`;
+            // Customize response text based on time filter
+            let timeDescription: string;
+            if (args.timeFilter === 'today') {
+              timeDescription = `today (${getTodayDateQuery()})`;
+            } else if (args.timeFilter === 'yesterday') {
+              timeDescription = `yesterday (${getYesterdayDateQuery()})`;
+            } else if (args.timeFilter === 'last24h') {
+              timeDescription = `the last 24 hours`;
+            } else if (args.hours) {
+              timeDescription = `the last ${args.hours} hours`;
+            } else if (fullQuery.includes('after:') || fullQuery.includes('before:')) {
+              timeDescription = `matching date filter: ${fullQuery}`;
+            } else {
+              timeDescription = `today (${getTodayDateQuery()})`;
+            }
+            
+            let responseText = `Found ${result.items.length} emails from ${timeDescription}`;
+            if (args.category) {
+              responseText += ` in category ${args.category}`;
+            }
+            if (fullQuery.includes('label:unread')) {
+              responseText += ` that are unread`;
+            }
+            responseText += ':\n\n';
             
             result.items.forEach((email: EmailData, index: number) => {
               responseText += `${index + 1}. ID: ${email.messageId}\n`;
               responseText += `   Subject: ${email.subject}\n`;
               responseText += `   From: ${email.from}\n`;
               responseText += `   To: ${email.to.join(', ')}\n`;
-              responseText += `   ${email.isUnread ? "📩 UNREAD" : "✓ Read"}\n`;
               responseText += `   Snippet: ${email.content.substring(0, 100)}...\n\n`;
             });
             
@@ -478,39 +540,122 @@ async function main() {
           
           case "search_emails": {
             const args = SearchEmailsSchema.parse(request.params.arguments);
-            console.error(`Searching emails with query: ${args.query}`);
             
-            // Make sure unread filter uses label:unread if specified as is:unread
-            let queryString = args.query;
-            if (queryString.includes("is:unread")) {
-              queryString = queryString.replace("is:unread", "label:unread");
+            // Start with user provided query
+            let fullQuery = args.query || '';
+            
+            // Apply correct unread syntax
+            fullQuery = ensureCorrectUnreadSyntax(fullQuery);
+            
+            // Add time filter if specified and query doesn't already have date filters
+            const hasDateFilter = fullQuery.includes('after:') || 
+                                 fullQuery.includes('before:') || 
+                                 fullQuery.includes('newer_than:') || 
+                                 fullQuery.includes('older_than:');
+            
+            if (args.timeFilter && !hasDateFilter) {
+              console.error(`Applying predefined time filter: ${args.timeFilter}`);
+              
+              if (args.timeFilter === 'today') {
+                // Today = current calendar date (00:00 to 23:59)
+                const todayQuery = getTodayQuery();
+                fullQuery = fullQuery ? `${todayQuery} ${fullQuery}` : todayQuery;
+                console.error(`Searching emails from today (${getTodayDateQuery()}) with query: ${fullQuery}`);
+              } 
+              else if (args.timeFilter === 'yesterday') {
+                // Yesterday = previous calendar date (00:00 to 23:59)
+                const yesterdayQuery = getYesterdayQuery();
+                fullQuery = fullQuery ? `${yesterdayQuery} ${fullQuery}` : yesterdayQuery;
+                console.error(`Searching emails from yesterday (${getYesterdayDateQuery()}) with query: ${fullQuery}`);
+              }
+              else if (args.timeFilter === 'last24h') {
+                // Last 24 hours = rolling 24 hour window
+                const dateQuery = `after:${getDateQuery(24)}`;
+                fullQuery = fullQuery ? `${dateQuery} ${fullQuery}` : dateQuery;
+                console.error(`Searching emails from the last 24 hours with query: ${fullQuery}`);
+              }
+            } else {
+              console.error(`Searching emails with query: ${fullQuery}`);
             }
             
             const gmailClient = new GmailClientWrapper(oauth2Client);
             const result = await gmailClient.listMessages({
               pageSize: args.maxResults,
               pageToken: args.pageToken,
-              query: queryString,
+              query: fullQuery,
               category: args.category
             });
             
             if (result.items.length === 0) {
+              let noResultsMessage = `No emails found matching`;
+              
+              // Add time filter description if applicable
+              if (args.timeFilter) {
+                if (args.timeFilter === 'today') {
+                  noResultsMessage += ` today (${getTodayDateQuery()})`;
+                } else if (args.timeFilter === 'yesterday') {
+                  noResultsMessage += ` yesterday (${getYesterdayDateQuery()})`;
+                } else if (args.timeFilter === 'last24h') {
+                  noResultsMessage += ` in the last 24 hours`;
+                }
+                
+                if (fullQuery !== getTodayQuery() && fullQuery !== getYesterdayQuery()) {
+                  noResultsMessage += ` with query: ${fullQuery}`;
+                }
+              } else {
+                noResultsMessage += ` query: ${fullQuery}`;
+              }
+              
+              if (args.category) {
+                noResultsMessage += ` in category ${args.category}`;
+              }
+              
               return {
                 content: [{
                   type: "text",
-                  text: `No emails found matching query: ${args.query}${args.category ? ` in category ${args.category}` : ''}`
+                  text: noResultsMessage
                 }]
               };
             }
             
-            let responseText = `Found ${result.items.length} emails matching query "${args.query}"${args.category ? ` in category ${args.category}` : ''}:\n\n`;
+            // Check if query contains 'label:unread' to highlight unread status in response
+            const isUnreadSearch = fullQuery.includes('label:unread');
+            
+            // Create appropriate response text based on search type
+            let responseText = `Found ${result.items.length} emails`;
+            
+            // Add time filter description if applicable
+            if (args.timeFilter) {
+              if (args.timeFilter === 'today') {
+                responseText += ` from today (${getTodayDateQuery()})`;
+              } else if (args.timeFilter === 'yesterday') {
+                responseText += ` from yesterday (${getYesterdayDateQuery()})`;
+              } else if (args.timeFilter === 'last24h') {
+                responseText += ` from the last 24 hours`;
+              }
+              
+              if (fullQuery !== getTodayQuery() && fullQuery !== getYesterdayQuery()) {
+                responseText += ` matching query: "${fullQuery}"`;
+              }
+            } else {
+              responseText += ` matching query: "${fullQuery}"`;
+            }
+            
+            if (args.category) {
+              responseText += ` in category ${args.category}`;
+            }
+            
+            if (isUnreadSearch) {
+              responseText += ` that are unread`;
+            }
+            
+            responseText += ':\n\n';
             
             result.items.forEach((email: EmailData, index: number) => {
               responseText += `${index + 1}. ID: ${email.messageId}\n`;
               responseText += `   Subject: ${email.subject}\n`;
               responseText += `   From: ${email.from}\n`;
               responseText += `   To: ${email.to.join(', ')}\n`;
-              responseText += `   ${email.isUnread ? "📩 UNREAD" : "✓ Read"}\n`;
               responseText += `   Snippet: ${email.content.substring(0, 100)}...\n\n`;
             });
             

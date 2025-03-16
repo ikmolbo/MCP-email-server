@@ -135,78 +135,97 @@ Please ensure all these elements are provided to maintain email thread context.
 
   get_recent_emails: {
     name: "get_recent_emails",
-    description: "Get recent emails with support for Gmail categories and read state",
+    description: "Get recent emails with support for Gmail categories, read state, and date filtering",
     template: `
-To get recent emails, please provide:
+To get recent emails, please CHOOSE ONE time filtering method:
 
-1. Filter by time (choose one):
-   - Hours to look back (default: 24)
-   - Use today's date (set useToday=true)
-   - Specific date (format: YYYY-MM-DD)
+OPTION 1: Use the timeFilter parameter (RECOMMENDED FOR CALENDAR DATES)
+- timeFilter: "today" - Gets emails from today's calendar date (00:00 to 23:59)
+- timeFilter: "yesterday" - Gets emails from yesterday's calendar date
+- timeFilter: "last24h" - Gets emails from the last 24 hours (rolling window)
 
-2. Category (optional: primary, social, promotions, updates, forums)
+OPTION 2: Use the hours parameter (FOR TIME WINDOWS)
+- hours: 24 - Gets emails from the last 24 hours (rolling window)
+- hours: 48 - Gets emails from the last 48 hours
 
-3. Additional search criteria (optional)
+OPTION 3: Use date filters in query parameter (FOR CUSTOM DATE RANGES)
+- query: "after:YYYY/MM/DD before:YYYY/MM/DD" - Gets emails between specific dates
+
+IMPORTANT DISTINCTIONS:
+- For "today" (a calendar date), use timeFilter:"today" not hours:24
+- For "last 24 hours" (a time window), use timeFilter:"last24h" or hours:24
+- For unread emails, ALWAYS use "label:unread" not "is:unread"
+
+You can also specify:
+- category (optional): "primary", "social", "promotions", "updates", "forums"
+- maxResults (optional): maximum number of results to return (default: 10)
+- query (optional): additional Gmail search criteria
 
 Common search patterns:
-1. Today's unread emails in Primary:
-   useToday: true, category: "primary", query: "label:unread"
+1. Today's unread emails from Primary:
+   timeFilter: "today", category: "primary", query: "label:unread"
 
-2. Unread emails from Updates from a specific date:
-   date: "2025-03-20", category: "updates", query: "label:unread"
+2. Last 3 unread emails from Updates category:
+   timeFilter: "last24h", category: "updates", query: "label:unread", maxResults: 3
 
-3. Important unread notifications from past week:
-   hours: 168, category: "updates", query: "label:unread label:important"
+3. Unread emails from yesterday needing reply:
+   timeFilter: "yesterday", query: "label:unread -has:muted -in:sent"
 
-4. Unread emails requiring action:
-   hours: 24, query: "label:unread -has:muted -in:sent"
-
-IMPORTANT NOTES:
-- ALWAYS use "label:unread" instead of "is:unread" in queries
-- For date filtering, prefer useToday=true for today's emails 
-- For specific dates, use the date parameter with format YYYY-MM-DD
+4. Today's important notifications:
+   timeFilter: "today", category: "updates", query: "label:important"
 
 The search will return:
 - Email subject, sender, and recipients
-- Email category and read/unread status (clearly marked)
+- Email category and read state
 - Whether the email is in inbox
 - Preview of content
 - Next page token if more results are available
     `,
-    parameters: ["hours", "category", "maxResults", "query", "pageToken", "date", "useToday"],
+    parameters: ["hours", "category", "maxResults", "query", "pageToken", "timeFilter"],
     required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInInbox"]
   },
 
   search_emails: {
     name: "search_emails",
-    description: "Search for emails with support for Gmail categories and read state",
+    description: "Search for emails with support for Gmail categories, read state, and precise date filtering",
     template: `
 To search for emails, please provide:
 1. Search query (required)
-2. Category (optional: primary, social, promotions, updates, forums)
-3. Max results (optional, default: 10)
+2. Time filter (optional but RECOMMENDED):
+   - timeFilter: "today" - Search within today's calendar date (00:00 to 23:59)
+   - timeFilter: "yesterday" - Search within yesterday's calendar date
+   - timeFilter: "last24h" - Search within last 24 hours (rolling window)
+
+You can also specify:
+- category (optional): "primary", "social", "promotions", "updates", "forums"
+- maxResults (optional): maximum number of results to return (default: 10)
+
+IMPORTANT DISTINCTIONS:
+- For "today" (a calendar date), use timeFilter:"today" not date in query
+- For "yesterday", use timeFilter:"yesterday"
+- For unread emails, ALWAYS use "label:unread" not "is:unread"
 
 Common search patterns:
-1. Unread emails in Primary:
-   query: "label:unread", category: "primary"
+1. Today's unread emails in Primary:
+   query: "label:unread", timeFilter: "today", category: "primary"
 
-2. Today's unread emails:
-   query: "label:unread after:${new Date().toISOString().split('T')[0]}"
-
-3. Unread emails from last week in Updates:
+2. Unread emails from last week in Updates:
    query: "label:unread newer_than:7d", category: "updates"
 
-4. Unanswered emails in Primary from today:
-   query: "label:unread -in:sent after:${new Date().toISOString().split('T')[0]}", category: "primary"
+3. Unanswered emails in Primary from today:
+   query: "label:unread -in:sent", timeFilter: "today", category: "primary"
 
-5. Important unread notifications:
-   query: "label:unread label:important", category: "updates"
+4. Important unread notifications from today:
+   query: "label:unread label:important", timeFilter: "today", category: "updates"
 
-IMPORTANT NOTES:
-- ALWAYS use "label:unread" instead of "is:unread"
-- For today's emails use: "after:${new Date().toISOString().split('T')[0]}"
-- For a specific date use: "after:YYYY-MM-DD before:YYYY-MM-DD+1d"
-- Use "newer_than:Nd" for N days ago
+5. Emails needing follow-up received yesterday:
+   query: "label:unread -has:muted -in:sent", timeFilter: "yesterday"
+
+Search operators to remember:
+- "label:unread" for unread emails (NOT "is:unread")
+- "after:YYYY/MM/DD" for emails after specific date
+- "before:YYYY/MM/DD" for emails before specific date
+- "newer_than:Nd" for emails from last N days
 - "-in:sent" to exclude sent emails
 - "has:attachment" for emails with attachments
 - "label:important" for important emails
@@ -214,12 +233,12 @@ IMPORTANT NOTES:
 
 The search will return:
 - Email subject, sender, and recipients
-- Email category and read/unread status (clearly marked)
+- Email category and read state
 - Whether the email is in inbox
 - Preview of content
 - Next page token if more results are available
     `,
-    parameters: ["query", "category", "maxResults", "pageToken"],
+    parameters: ["query", "category", "maxResults", "pageToken", "timeFilter"],
     required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInInbox"]
   }
 };

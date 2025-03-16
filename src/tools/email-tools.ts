@@ -141,8 +141,71 @@ export const sendReplyTool: Tool = {
   }
 };
 
-export const emailTools = [
+export const listEmailsTool: Tool = {
+  name: "email_list",
+  description: "List emails with pagination support and filtering options. Supports Gmail categories (Primary, Social, Promotions, etc.)",
+  inputSchema: {
+    type: "object",
+    properties: {
+      pageSize: {
+        type: "number",
+        description: "Number of emails per page (default: 100, max: 500)",
+        minimum: 1,
+        maximum: 500
+      },
+      pageToken: {
+        type: "string",
+        description: "Token for the next page of results"
+      },
+      labelIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Filter by label IDs (e.g., INBOX, UNREAD)"
+      },
+      includeSpamTrash: {
+        type: "boolean",
+        description: "Include messages from SPAM and TRASH folders"
+      },
+      query: {
+        type: "string",
+        description: "Gmail search query (e.g., 'from:example@gmail.com')"
+      },
+      category: {
+        type: "string",
+        enum: ["primary", "social", "promotions", "updates", "forums"],
+        description: "Filter by Gmail category. Use 'primary' for main inbox emails, excluding other categories."
+      }
+    }
+  },
+  handler: async (client: GmailClientWrapper, params: {
+    pageSize?: number;
+    pageToken?: string;
+    labelIds?: string[];
+    includeSpamTrash?: boolean;
+    query?: string;
+    category?: 'primary' | 'social' | 'promotions' | 'updates' | 'forums';
+  }) => {
+    const result = await client.listMessages(params);
+
+    return {
+      messages: result.items.map(email => ({
+        messageId: email.messageId,
+        threadId: email.threadId,
+        subject: email.subject,
+        from: email.from,
+        to: email.to,
+        labels: email.labels,
+        hasAttachments: email.attachments && email.attachments.length > 0
+      })),
+      nextPageToken: result.nextPageToken,
+      resultSizeEstimate: result.resultSizeEstimate
+    };
+  }
+};
+
+export const emailTools = {
   readEmailTool,
   sendEmailTool,
   sendReplyTool,
-]; 
+  listEmailsTool
+}; 

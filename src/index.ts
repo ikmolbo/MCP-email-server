@@ -23,11 +23,14 @@ import {
   extractEmailContent, 
   getAttachments, 
   getDateQuery,
+  getTodayDateQuery,
+  formatDateForQuery,
   GmailMessagePart 
 } from './utils.js';
 import { authenticate as googleAuthenticate } from '@google-cloud/local-auth';
 import { dirname } from 'path';
 import { startServer } from './server.js';
+import { GmailClientWrapper, EmailData } from './client-wrapper.js';
 
 // Initialize environment
 dotenv.config();
@@ -58,6 +61,11 @@ const GetRecentEmailsSchema = z.object({
   hours: z.number().default(24).describe("Number of hours to look back (default: 24)"),
   maxResults: z.number().default(10).describe("Maximum number of results to return (default: 10)"),
   query: z.string().optional().describe("Additional Gmail search query (e.g., 'from:example@gmail.com')"),
+  pageToken: z.string().optional().describe("Token for the next page of results"),
+  category: z.enum(['primary', 'social', 'promotions', 'updates', 'forums']).optional()
+    .describe("Filter by Gmail category (primary, social, promotions, updates, forums)"),
+  date: z.string().optional().describe("Specific date to filter emails (format: YYYY-MM-DD). If provided, overrides hours parameter"),
+  useToday: z.boolean().optional().default(false).describe("If true, filters emails from today only (overrides hours and date parameters)")
 });
 
 const ReadEmailSchema = z.object({
@@ -67,6 +75,9 @@ const ReadEmailSchema = z.object({
 const SearchEmailsSchema = z.object({
   query: z.string().describe("Gmail search query (e.g., 'from:example@gmail.com')"),
   maxResults: z.number().optional().default(10).describe("Maximum number of results to return"),
+  pageToken: z.string().optional().describe("Token for the next page of results"),
+  category: z.enum(['primary', 'social', 'promotions', 'updates', 'forums']).optional()
+    .describe("Filter by Gmail category (primary, social, promotions, updates, forums)")
 });
 
 // Load OAuth credentials
@@ -340,60 +351,77 @@ async function main() {
           
           case "get_recent_emails": {
             const args = GetRecentEmailsSchema.parse(request.params.arguments);
-            console.error(`Getting emails from the last ${args.hours} hours`);
             
-            const dateQuery = `after:${getDateQuery(args.hours)}`;
-            const fullQuery = args.query ? `${dateQuery} ${args.query}` : dateQuery;
+            let dateQuery: string;
+            let dateDescription: string;
             
-            const response = await gmail.users.messages.list({
-              userId: 'me',
-              q: fullQuery,
-              maxResults: args.maxResults,
+            if (args.useToday) {
+              // Filter by today's date
+              const todayDate = getTodayDateQuery();
+              dateQuery = `after:${todayDate}`;
+              dateDescription = "today";
+            } else if (args.date) {
+              // Filter by specific date
+              try {
+                const formattedDate = formatDateForQuery(args.date);
+                dateQuery = `after:${formattedDate} before:${formattedDate}+1d`;
+                dateDescription = `on ${args.date}`;
+              } catch (error) {
+                return {
+                  content: [{
+                    type: "text",
+                    text: `Invalid date format: ${args.date}. Please use YYYY-MM-DD format.`
+                  }]
+                };
+              }
+            } else {
+              // Filter by hours
+              console.error(`Getting emails from the last ${args.hours} hours`);
+              dateQuery = `after:${getDateQuery(args.hours)}`;
+              dateDescription = `from the last ${args.hours} hours`;
+            }
+            
+            // Make sure unread filter uses label:unread if specified as is:unread
+            let queryString = args.query || "";
+            if (queryString.includes("is:unread")) {
+              queryString = queryString.replace("is:unread", "label:unread");
+            }
+            
+            const fullQuery = queryString ? `${dateQuery} ${queryString}` : dateQuery;
+            
+            const gmailClient = new GmailClientWrapper(oauth2Client);
+            const result = await gmailClient.listMessages({
+              pageSize: args.maxResults,
+              pageToken: args.pageToken,
+              query: fullQuery,
+              category: args.category
             });
             
-            const messages = response.data.messages || [];
-            console.error(`Found ${messages.length} emails`);
-            
-            if (messages.length === 0) {
+            if (result.items.length === 0) {
               return {
                 content: [{
                   type: "text",
-                  text: `No emails found in the last ${args.hours} hours.`
+                  text: `No emails found ${dateDescription}${args.category ? ` in category ${args.category}` : ''}.${args.query ? ` Query: ${args.query}` : ''}`
                 }]
               };
             }
             
-            const results = await Promise.all(
-              messages.map(async (msg) => {
-                const detail = await gmail.users.messages.get({
-                  userId: 'me',
-                  id: msg.id!,
-                  format: 'metadata',
-                  metadataHeaders: ['Subject', 'From', 'To', 'Date'],
-                });
-                
-                const headers = detail.data.payload?.headers || [];
-                return {
-                  id: msg.id,
-                  subject: headers.find(h => h.name === 'Subject')?.value || '(No Subject)',
-                  from: headers.find(h => h.name === 'From')?.value || '',
-                  to: headers.find(h => h.name === 'To')?.value || '',
-                  date: headers.find(h => h.name === 'Date')?.value || '',
-                  snippet: detail.data.snippet || '',
-                };
-              })
-            );
+            let responseText = `Found ${result.items.length} emails ${dateDescription}${args.category ? ` in category ${args.category}` : ''}${args.query ? ` matching "${args.query}"` : ''}:\n\n`;
             
-            let responseText = `Found ${results.length} emails from the last ${args.hours} hours:\n\n`;
-            
-            results.forEach((email, index) => {
-              responseText += `${index + 1}. ID: ${email.id}\n`;
+            result.items.forEach((email: EmailData, index: number) => {
+              responseText += `${index + 1}. ID: ${email.messageId}\n`;
               responseText += `   Subject: ${email.subject}\n`;
               responseText += `   From: ${email.from}\n`;
-              responseText += `   To: ${email.to}\n`;
-              responseText += `   Date: ${email.date}\n`;
-              responseText += `   Snippet: ${email.snippet}\n\n`;
+              responseText += `   To: ${email.to.join(', ')}\n`;
+              responseText += `   ${email.isUnread ? "📩 UNREAD" : "✓ Read"}\n`;
+              responseText += `   Snippet: ${email.content.substring(0, 100)}...\n\n`;
             });
+            
+            if (result.nextPageToken) {
+              responseText += `\nNext page token: ${result.nextPageToken}\n`;
+              responseText += `Total estimated results: ${result.resultSizeEstimate}\n`;
+              responseText += `\nTo get the next page, use this token with the same query parameters.`;
+            }
             
             return {
               content: [{
@@ -452,53 +480,45 @@ async function main() {
             const args = SearchEmailsSchema.parse(request.params.arguments);
             console.error(`Searching emails with query: ${args.query}`);
             
-            const response = await gmail.users.messages.list({
-              userId: 'me',
-              q: args.query,
-              maxResults: args.maxResults,
+            // Make sure unread filter uses label:unread if specified as is:unread
+            let queryString = args.query;
+            if (queryString.includes("is:unread")) {
+              queryString = queryString.replace("is:unread", "label:unread");
+            }
+            
+            const gmailClient = new GmailClientWrapper(oauth2Client);
+            const result = await gmailClient.listMessages({
+              pageSize: args.maxResults,
+              pageToken: args.pageToken,
+              query: queryString,
+              category: args.category
             });
             
-            const messages = response.data.messages || [];
-            console.error(`Found ${messages.length} emails`);
-            
-            if (messages.length === 0) {
+            if (result.items.length === 0) {
               return {
                 content: [{
                   type: "text",
-                  text: `No emails found matching query: ${args.query}`
+                  text: `No emails found matching query: ${args.query}${args.category ? ` in category ${args.category}` : ''}`
                 }]
               };
             }
             
-            const results = await Promise.all(
-              messages.map(async (msg) => {
-                const detail = await gmail.users.messages.get({
-                  userId: 'me',
-                  id: msg.id!,
-                  format: 'metadata',
-                  metadataHeaders: ['Subject', 'From', 'Date'],
-                });
-                
-                const headers = detail.data.payload?.headers || [];
-                return {
-                  id: msg.id,
-                  subject: headers.find(h => h.name === 'Subject')?.value || '(No Subject)',
-                  from: headers.find(h => h.name === 'From')?.value || '',
-                  date: headers.find(h => h.name === 'Date')?.value || '',
-                  snippet: detail.data.snippet || '',
-                };
-              })
-            );
+            let responseText = `Found ${result.items.length} emails matching query "${args.query}"${args.category ? ` in category ${args.category}` : ''}:\n\n`;
             
-            let responseText = `Found ${results.length} emails matching query "${args.query}":\n\n`;
-            
-            results.forEach((email, index) => {
-              responseText += `${index + 1}. ID: ${email.id}\n`;
+            result.items.forEach((email: EmailData, index: number) => {
+              responseText += `${index + 1}. ID: ${email.messageId}\n`;
               responseText += `   Subject: ${email.subject}\n`;
               responseText += `   From: ${email.from}\n`;
-              responseText += `   Date: ${email.date}\n`;
-              responseText += `   Snippet: ${email.snippet}\n\n`;
+              responseText += `   To: ${email.to.join(', ')}\n`;
+              responseText += `   ${email.isUnread ? "📩 UNREAD" : "✓ Read"}\n`;
+              responseText += `   Snippet: ${email.content.substring(0, 100)}...\n\n`;
             });
+            
+            if (result.nextPageToken) {
+              responseText += `\nNext page token: ${result.nextPageToken}\n`;
+              responseText += `Total estimated results: ${result.resultSizeEstimate}\n`;
+              responseText += `\nTo get the next page, use this token with the same query parameters.`;
+            }
             
             return {
               content: [{

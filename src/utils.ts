@@ -124,9 +124,23 @@ export function getAttachments(messagePart: GmailMessagePart): EmailAttachment[]
   return attachments;
 }
 
-// Format date for Gmail query
+// Format date for Gmail query based on hours ago
 export function getDateQuery(hoursAgo: number): string {
   const date = new Date();
   date.setHours(date.getHours() - hoursAgo);
   return date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+}
+
+// Get today's date for Gmail query
+export function getTodayDateQuery(): string {
+  return new Date().toISOString().split('T')[0]; // Format as YYYY-MM-DD
+}
+
+// Format specific date for Gmail query (accepts YYYY-MM-DD format)
+export function formatDateForQuery(date: string): string {
+  // Validate date format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error('Date must be in YYYY-MM-DD format');
+  }
+  return date;
 } 

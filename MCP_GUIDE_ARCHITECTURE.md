@@ -1,5 +1,7 @@
 # MCP Server Architecture Guide
 
+IMPORTANT: when you build a tool, be sure to add prompt templates for the tool, with examples for relevant use cases.
+
 This guide provides a comprehensive overview of how to build Model Context Protocol (MCP) servers using a modular and maintainable architecture. The structure presented here is based on best practices and real-world implementation experience.
 
 ## What is an MCP Server?

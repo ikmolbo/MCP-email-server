@@ -25,13 +25,17 @@ import {
   getDateQuery,
   GmailMessagePart 
 } from './utils.js';
+import { authenticate as googleAuthenticate } from '@google-cloud/local-auth';
+import { dirname } from 'path';
+import { startServer } from './server.js';
 
 // Initialize environment
 dotenv.config();
 console.error("Environment loaded");
 
 // Configuration paths
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const CONFIG_DIR = path.join(os.homedir(), '.email-mcp');
 const OAUTH_PATH = process.env.GMAIL_OAUTH_PATH || path.join(CONFIG_DIR, 'gcp-oauth.keys.json');
 const CREDENTIALS_PATH = process.env.GMAIL_CREDENTIALS_PATH || path.join(CONFIG_DIR, 'credentials.json');

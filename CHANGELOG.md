@@ -1,43 +1,54 @@
 # Changelog
 
+## [0.4.0] - 2024-03-16
+
+### Added
+- Refactorizare completă a arhitecturii conform standardelor MCP
+- Implementare sistem de prompt-uri pentru email
+- Separare cod în module distincte pentru mai bună mentenanță
+- Adăugare validări și handling erori îmbunătățit
+- Documentație extinsă pentru dezvoltatori
+
+### Changed
+- Restructurare cod în directoare specializate
+- Îmbunătățire handling pentru thread-uri și adrese de reply
+- Actualizare tipuri și interfețe pentru mai bună type safety
+- Separare logică de business în module dedicate
+
+### Fixed
+- Corectare handling pentru adrese de reply în thread-uri
+- Îmbunătățire validare parametri pentru tool-uri
+- Corectare erori de tipuri în implementarea tool-urilor
+
 ## [0.3.0] - 2024-03-16
 
 ### Added
-- Reply from correct email address functionality
-  - Added support for determining the original recipient address
-  - Added integration with Gmail's Send-As aliases
-  - Automatically uses the correct email address when replying
-  - Added From header support in email creation
+- Funcționalitate pentru reply de la adresa corectă
+- Suport pentru determinarea adresei originale de destinație
+- Integrare cu Gmail Send-As aliases
+- Selecție automată a adresei corecte pentru reply
+- Suport pentru header From în crearea email-urilor
 
 ### Changed
-- Modified `createEmailMessage` function to support From header
-- Added `getReplyToAddress` function to determine correct reply address
-- Enhanced email sending response to show the used From address
+- Modificare funcție createEmailMessage pentru suport From header
+- Adăugare funcție getReplyToAddress
 
 ## [0.2.0] - 2024-03-16
 
 ### Added
-- Thread reply functionality
-  - Added support for replying to existing email threads
-  - Implemented proper email threading with Gmail conversation view
-  - Added RFC 2822 compliant email headers for threading
-  - Added `inReplyTo` and `threadId` parameters to send_email tool
+- Funcționalitate thread reply
+- Suport pentru răspuns la email-uri existente
+- Modificări createEmailMessage pentru suport threading headers
+- Îmbunătățiri read_email pentru informații thread
 
 ### Changed
-- Modified `createEmailMessage` function to support threading headers
-  - Added `References` header support
-  - Added `In-Reply-To` header support
-  - Added thread ID support in message metadata
+- Actualizare funcții pentru suport References și In-Reply-To
+- Îmbunătățire extragere informații email
 
-### Enhanced
-- Enhanced `read_email` tool to include threading information
-  - Now returns Message-ID and Thread ID
-  - Improved email metadata display
+## [0.1.0] - 2024-03-16
 
-## [0.1.0] - Initial Release
-
-- Basic email functionality
-  - Send emails
-  - Read emails
-  - Search emails
-  - Get recent emails 
+### Added
+- Implementare inițială server MCP pentru email
+- Integrare cu Gmail API
+- Funcționalitate de bază pentru trimitere și citire email-uri
+- Autentificare OAuth cu Gmail 

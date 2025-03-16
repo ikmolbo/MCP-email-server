@@ -46,6 +46,8 @@ const SendEmailSchema = z.object({
   body: z.string().describe("Email body content"),
   cc: z.array(z.string()).optional().describe("List of CC recipients"),
   bcc: z.array(z.string()).optional().describe("List of BCC recipients"),
+  inReplyTo: z.string().optional().describe("Message ID to reply to"),
+  threadId: z.string().optional().describe("Thread ID to add the message to"),
 });
 
 const GetRecentEmailsSchema = z.object({
@@ -106,6 +108,45 @@ async function loadCredentials() {
   } catch (error) {
     console.error('Error loading credentials:', error);
     process.exit(1);
+  }
+}
+
+// Add this function after loadCredentials()
+async function getReplyToAddress(gmail: any, messageId: string): Promise<string | undefined> {
+  try {
+    // First get the original message to find the To: address
+    const message = await gmail.users.messages.get({
+      userId: 'me',
+      id: messageId,
+      format: 'metadata',
+      metadataHeaders: ['To'],
+    });
+
+    const toHeader = message.data.payload?.headers?.find((h: any) => h.name === 'To');
+    if (!toHeader?.value) return undefined;
+
+    // Extract email address from To: header
+    const match = toHeader.value.match(/<([^>]+)>/) || [null, toHeader.value.trim()];
+    const originalToAddress = match[1];
+
+    // Get list of send-as aliases
+    const sendAsResponse = await gmail.users.settings.sendAs.list({
+      userId: 'me',
+    });
+
+    // Find the matching send-as alias
+    const sendAsAlias = sendAsResponse.data.sendAs?.find(
+      (alias: any) => alias.sendAsEmail === originalToAddress
+    );
+
+    if (sendAsAlias) {
+      return `${sendAsAlias.displayName} <${sendAsAlias.sendAsEmail}>`;
+    }
+
+    return undefined;
+  } catch (error) {
+    console.error('Error getting reply-to address:', error);
+    return undefined;
   }
 }
 
@@ -236,7 +277,39 @@ async function main() {
             const args = SendEmailSchema.parse(request.params.arguments);
             console.error(`Sending email to: ${args.to.join(', ')}`);
             
-            const message = createEmailMessage(args);
+            // If this is a reply, get the original message details
+            let references: string[] = [];
+            let fromAddress: string | undefined;
+            
+            if (args.inReplyTo) {
+              // Get original message for References header
+              const originalMessage = await gmail.users.messages.get({
+                userId: 'me',
+                id: args.inReplyTo,
+                format: 'metadata',
+                metadataHeaders: ['References', 'Message-ID'],
+              });
+              
+              const headers = originalMessage.data.payload?.headers || [];
+              const existingRefs = headers.find(h => h.name === 'References')?.value;
+              const messageId = headers.find(h => h.name === 'Message-ID')?.value;
+              
+              if (existingRefs) {
+                references = existingRefs.split(/\s+/);
+              }
+              if (messageId) {
+                references.push(messageId.replace(/[<>]/g, ''));
+              }
+
+              // Get the correct reply-from address
+              fromAddress = await getReplyToAddress(gmail, args.inReplyTo);
+            }
+            
+            const message = createEmailMessage({
+              ...args,
+              references: references.length > 0 ? references : undefined,
+              from: fromAddress,
+            });
             
             const encodedMessage = Buffer.from(message).toString('base64')
               .replace(/\+/g, '-')
@@ -247,6 +320,7 @@ async function main() {
               userId: 'me',
               requestBody: {
                 raw: encodedMessage,
+                threadId: args.threadId,
               },
             });
             
@@ -255,7 +329,7 @@ async function main() {
             return {
               content: [{
                 type: "text",
-                text: `Email sent successfully!\n\nTo: ${args.to.join(', ')}\nSubject: ${args.subject}\nMessage ID: ${response.data.id}`
+                text: `Email sent successfully!\n\nTo: ${args.to.join(', ')}\nSubject: ${args.subject}\nMessage ID: ${response.data.id}${args.threadId ? '\nThread ID: ' + args.threadId : ''}${fromAddress ? '\nSent from: ' + fromAddress : ''}`
               }]
             };
           }
@@ -341,6 +415,8 @@ async function main() {
             const to = headers.find(h => h.name?.toLowerCase() === 'to')?.value || '';
             const cc = headers.find(h => h.name?.toLowerCase() === 'cc')?.value || '';
             const date = headers.find(h => h.name?.toLowerCase() === 'date')?.value || '';
+            const messageId = headers.find(h => h.name?.toLowerCase() === 'message-id')?.value || '';
+            const threadId = response.data.threadId || '';
             
             // Extract email content
             const { text, html } = extractEmailContent(response.data.payload as GmailMessagePart || {});
@@ -363,7 +439,7 @@ async function main() {
             return {
               content: [{
                 type: "text",
-                text: `Subject: ${subject}\nFrom: ${from}\nTo: ${to}${cc ? `\nCC: ${cc}` : ''}\nDate: ${date}\n\n${contentTypeNote}${body}${attachmentInfo}`
+                text: `Subject: ${subject}\nFrom: ${from}\nTo: ${to}${cc ? `\nCC: ${cc}` : ''}\nDate: ${date}\nMessage-ID: ${messageId}\nThread ID: ${threadId}\n\n${contentTypeNote}${body}${attachmentInfo}`
               }]
             };
           }

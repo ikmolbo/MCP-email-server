@@ -1,23 +1,37 @@
 // Email message creation utility
-export function createEmailMessage(args: {
+export interface EmailOptions {
   to: string[];
   subject: string;
   body: string;
   cc?: string[];
   bcc?: string[];
-}) {
+  inReplyTo?: string;
+  references?: string[];
+  threadId?: string;
+  from?: string;
+}
+
+export function createEmailMessage(args: EmailOptions) {
+  const fromHeader = args.from ? `From: ${args.from}\r\n` : '';
   const toHeader = `To: ${args.to.join(', ')}\r\n`;
   const ccHeader = args.cc && args.cc.length > 0 ? `Cc: ${args.cc.join(', ')}\r\n` : '';
   const bccHeader = args.bcc && args.bcc.length > 0 ? `Bcc: ${args.bcc.join(', ')}\r\n` : '';
   const subjectHeader = `Subject: ${args.subject}\r\n`;
   const contentType = 'Content-Type: text/plain; charset=utf-8\r\n';
+  const inReplyToHeader = args.inReplyTo ? `In-Reply-To: <${args.inReplyTo}>\r\n` : '';
+  const referencesHeader = args.references && args.references.length > 0 
+    ? `References: ${args.references.map(ref => `<${ref}>`).join(' ')}\r\n` 
+    : '';
   
   const message = 
+    fromHeader +
     toHeader +
     ccHeader +
     bccHeader +
     subjectHeader +
     contentType +
+    inReplyToHeader +
+    referencesHeader +
     '\r\n' +
     args.body;
   

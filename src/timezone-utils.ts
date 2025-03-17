@@ -6,6 +6,7 @@ dotenv.config();
 
 // Parse TIME_ZONE environment variable (default to GMT+0 if not specified)
 const timeZoneString = process.env.TIME_ZONE || 'GMT+0';
+console.error(`Timezone configuration loaded: ${timeZoneString}`);
 
 /**
  * Parse a timezone string in GMT+/- format
@@ -24,6 +25,7 @@ export function parseTimeZone(timeZoneString: string): number {
 
 // Parse the timezone offset
 export const timeZoneOffset = parseTimeZone(timeZoneString);
+console.error(`Timezone offset: ${timeZoneOffset} hours`);
 
 /**
  * Adjust a date to specified timezone
@@ -34,11 +36,16 @@ export const timeZoneOffset = parseTimeZone(timeZoneString);
 export function adjustDateToTimeZone(date: Date, offsetHours: number = timeZoneOffset): Date {
   const newDate = new Date(date);
   
-  // Using UTC methods to avoid browser/system timezone interference
-  const currentHours = newDate.getUTCHours();
-  newDate.setUTCHours(currentHours + offsetHours);
+  // Calculate UTC milliseconds
+  const utcMs = newDate.getTime();
   
-  return newDate;
+  // Apply timezone offset in milliseconds (hours * 60 min * 60 sec * 1000 ms)
+  const offsetMs = offsetHours * 60 * 60 * 1000;
+  
+  // Create new date with timezone offset
+  const adjustedDate = new Date(utcMs + offsetMs);
+  
+  return adjustedDate;
 }
 
 /**
@@ -69,8 +76,17 @@ export function formatTimestampWithOffset(timestamp: string, offsetHours: number
   try {
     const date = new Date(timestamp);
     const adjustedDate = adjustDateToTimeZone(date, offsetHours);
-    return adjustedDate.toISOString().replace('T', ' ').substring(0, 19);
+    
+    // Format the date string with local timezone information
+    const formattedDate = adjustedDate.toISOString().replace('T', ' ').substring(0, 19);
+    const tzSign = offsetHours >= 0 ? '+' : '-';
+    const tzAbsHours = Math.abs(offsetHours);
+    const tzHours = Math.floor(tzAbsHours);
+    const tzMinutes = Math.round((tzAbsHours - tzHours) * 60);
+    
+    return `${formattedDate} GMT${tzSign}${tzHours.toString().padStart(2, '0')}:${tzMinutes.toString().padStart(2, '0')}`;
   } catch (e) {
+    console.error('Error formatting timestamp:', timestamp, e);
     // If parsing fails, return the raw timestamp
     return timestamp;
   }

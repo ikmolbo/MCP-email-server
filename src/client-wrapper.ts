@@ -2,6 +2,7 @@ import { gmail_v1, google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import { GaxiosResponse } from 'gaxios';
 import { encodeEmailSubject } from './utils.js';
+import { timeZoneOffset, formatTimestampWithOffset } from './timezone-utils.js';
 
 export interface PaginationOptions {
   pageSize?: number;
@@ -181,9 +182,10 @@ export class GmailClientWrapper {
       
       if (dateHeader) {
         try {
-          // Parse the date header and convert to standard format
+          // Parse the date header and apply timezone offset
           const dateObj = new Date(dateHeader);
-          timestamp = dateObj.toISOString();
+          // Folosim funcția formatTimestampWithOffset pentru a aplica offsetul
+          timestamp = formatTimestampWithOffset(dateHeader);
         } catch (e) {
           console.error('Error parsing date header:', e);
           // If parsing fails, use the original header value

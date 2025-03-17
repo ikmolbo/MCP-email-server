@@ -1,6 +1,12 @@
-import { VALIDATED_TIME_ZONE } from './index.js';
-
 // Email message creation utility
+import { 
+  timeZoneOffset, 
+  adjustDateToTimeZone, 
+  getCurrentDateInTimeZone, 
+  formatDateToYYYYMMDD,
+  formatTimestampWithOffset
+} from './timezone-utils.js';
+
 export interface EmailOptions {
   to: string[];
   subject: string;
@@ -143,80 +149,31 @@ export function getAttachments(messagePart: GmailMessagePart): EmailAttachment[]
   return attachments;
 }
 
-// Helper function to adjust a date to the configured timezone
-export function adjustDateToTimeZone(date: Date): Date {
-  const targetTz = VALIDATED_TIME_ZONE;
-  
-  // If timezone is UTC, no adjustment needed
-  if (targetTz === 'UTC') {
-    return new Date(date);
-  }
-  
-  try {
-    // Nu modificăm data în sine, doar o formatăm pentru afișare în fusul orar corect
-    // Returnăm data originală, deoarece Gmail API oferă deja timestamp-uri UTC
-    // Formatarea pentru afișare se va face separat, în funcția formatTimestamp
-    return date;
-  } catch (error) {
-    console.warn(`Error adjusting date to timezone ${targetTz}:`, error);
-    return date; // Return original date if conversion fails
-  }
-}
-
-// Helper function to format timestamp in a standardized way
-export function formatTimestamp(timestamp?: string): string {
-  if (!timestamp) return 'Received: Unknown';
-  
-  try {
-    const date = new Date(timestamp);
-    // Format using Intl.DateTimeFormat cu fusul orar corect
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: VALIDATED_TIME_ZONE,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-
-    return `Received: ${formatter.format(date).replace(',', '').replace(/\//g, '-')}`;
-  } catch (e) {
-    // If parsing fails, return the raw timestamp
-    return `Received: ${timestamp}`;
-  }
+// Format date for Gmail query
+export function getDateQuery(hoursAgo: number): string {
+  const date = getCurrentDateInTimeZone();
+  date.setHours(date.getHours() - hoursAgo);
+  return date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
 }
 
 // Function to get today's date in Gmail query format (YYYY/MM/DD)
 export function getTodayDateQuery(): string {
-  const today = new Date();
-  const adjustedDate = adjustDateToTimeZone(today);
-  return `${adjustedDate.getFullYear()}/${(adjustedDate.getMonth() + 1).toString().padStart(2, '0')}/${adjustedDate.getDate().toString().padStart(2, '0')}`;
+  const today = getCurrentDateInTimeZone();
+  return formatDateToYYYYMMDD(today);
 }
 
 // Function to get tomorrow's date in Gmail query format
 export function getTomorrowDateQuery(): string {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const adjustedDate = adjustDateToTimeZone(tomorrow);
-  return `${adjustedDate.getFullYear()}/${(adjustedDate.getMonth() + 1).toString().padStart(2, '0')}/${adjustedDate.getDate().toString().padStart(2, '0')}`;
+  const tomorrow = getCurrentDateInTimeZone();
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  return formatDateToYYYYMMDD(tomorrow);
 }
 
 // Function to get yesterday's date in Gmail query format
 export function getYesterdayDateQuery(): string {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const adjustedDate = adjustDateToTimeZone(yesterday);
-  return `${adjustedDate.getFullYear()}/${(adjustedDate.getMonth() + 1).toString().padStart(2, '0')}/${adjustedDate.getDate().toString().padStart(2, '0')}`;
-}
-
-// Format date for Gmail query
-export function getDateQuery(hoursAgo: number): string {
-  const date = new Date();
-  date.setHours(date.getHours() - hoursAgo);
-  const adjustedDate = adjustDateToTimeZone(date);
-  return adjustedDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+  const yesterday = getCurrentDateInTimeZone();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  return formatDateToYYYYMMDD(yesterday);
 }
 
 // Function to create a Gmail query for emails received today
@@ -236,4 +193,10 @@ export function ensureCorrectUnreadSyntax(query: string): string {
     return query.replace(/is:unread/g, 'label:unread');
   }
   return query;
+}
+
+// Helper function to format timestamp in a standardized way
+export function formatTimestamp(timestamp?: string): string {
+  if (!timestamp) return 'Received: Unknown';
+  return `Received: ${formatTimestampWithOffset(timestamp)}`;
 } 

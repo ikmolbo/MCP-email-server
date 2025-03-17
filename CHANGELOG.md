@@ -38,13 +38,9 @@
 - Added detailed prompt templates for label operations
 - Updated documentation with examples for label management tools
 
-## [0.5.0] - 2024-03-18
+## [0.5.0] - 2024-03-17
 
 ### Added
-- Timezone configuration support for email timestamps and date queries
-- Support for setting timezone through environment variable TIME_ZONE via Claude configuration
-- Automatic adjustment of all date/time display and queries to use the configured timezone
-- Validation of timezone format with fallback to UTC if invalid
 - Automatic pagination with new `autoFetchAll` parameter for email search tools:
   - Added capability to automatically retrieve up to 100 emails in a single request
   - Implemented progressive loading logic with configurable limits
@@ -184,3 +180,11 @@
 - Better query construction for complex search operations
 - Improved documentation in code comments
 - Updated tool descriptions with more accurate usage information
+
+## [Unreleased]
+
+### Added
+- Timezone support based on environment variable (TIME_ZONE), can be configured in format like 'GMT+2'
+- All date and time operations now properly reflect the configured timezone
+- Proper RFC 2047 encoding for email subjects to handle non-ASCII characters correctly
+- Label management in Gmail: create, delete, update, and modify labels on messages

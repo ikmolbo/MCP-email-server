@@ -1,14 +1,7 @@
 import { gmail_v1, google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import { GaxiosResponse } from 'gaxios';
-import { encodeEmailSubject, 
-  createEmailMessage, 
-  extractEmailContent, 
-  getAttachments, 
-  formatTimestamp,
-  adjustDateToTimeZone,
-  GmailMessagePart
-} from './utils.js';
+import { encodeEmailSubject } from './utils.js';
 
 export interface PaginationOptions {
   pageSize?: number;
@@ -155,71 +148,66 @@ export class GmailClientWrapper {
       const response = await this.gmail.users.messages.get({
         userId: this.userId,
         id: messageId,
-        format: 'full'
+        format: 'full',
       });
 
       const message = response.data;
-      // Folosim type assertion pentru a ne asigura că headers este un array de MessagePartHeader
       const headers = message.payload?.headers || [];
-      
-      // Extract basic metadata with verificări mai stricte
-      const subjectHeader = headers.find(h => h.name === 'Subject');
-      const fromHeader = headers.find(h => h.name === 'From');
-      const toHeader = headers.find(h => h.name === 'To');
-      const dateHeader = headers.find(h => h.name === 'Date');
-      
-      const subject = subjectHeader?.value || '(No subject)';
-      const from = fromHeader?.value || '';
-      const to = (toHeader?.value || '').split(',').map(e => e.trim());
-      const timestamp = dateHeader?.value || '';
-      
-      // Folosim formatTimestamp pentru afișarea în fusul orar corect
-      const formattedTimestamp = formatTimestamp(timestamp).replace('Received: ', '');
-      
-      // Process message content
-      const { text, html } = extractEmailContent(message.payload as GmailMessagePart);
-      const content = html || text;
-      
-      // Extract email state from labels
       const labels = message.labelIds || [];
+      
+      // Determine email state from labels
       const isUnread = labels.includes('UNREAD');
       const isInInbox = labels.includes('INBOX');
       
-      // Determine category based on Gmail categorization
-      let category: 'primary' | 'social' | 'promotions' | 'updates' | 'forums' | undefined;
-      if (labels.includes('CATEGORY_PERSONAL') || labels.includes('CATEGORY_PRIMARY')) {
-        category = 'primary';
-      } else if (labels.includes('CATEGORY_SOCIAL')) {
-        category = 'social';
-      } else if (labels.includes('CATEGORY_PROMOTIONS')) {
-        category = 'promotions';
-      } else if (labels.includes('CATEGORY_UPDATES')) {
-        category = 'updates';
-      } else if (labels.includes('CATEGORY_FORUMS')) {
-        category = 'forums';
+      // Determine category based on Gmail's category system
+      let category: EmailData['category'] = undefined;
+      
+      // Check for category based on Gmail's actual categorization
+      if (isInInbox) {
+        if (labels.some(l => l.startsWith('CATEGORY_'))) {
+          if (labels.includes('CATEGORY_SOCIAL')) category = 'social';
+          else if (labels.includes('CATEGORY_PROMOTIONS')) category = 'promotions';
+          else if (labels.includes('CATEGORY_UPDATES')) category = 'updates';
+          else if (labels.includes('CATEGORY_FORUMS')) category = 'forums';
+        } else {
+          // If in inbox but no category, it's primary
+          category = 'primary';
+        }
       }
       
-      // Get attachments if any
-      const attachments = getAttachments(message.payload as GmailMessagePart);
+      // Extract date information from headers
+      const dateHeader = headers.find(h => h.name?.toLowerCase() === 'date')?.value;
+      let timestamp: string | undefined = undefined;
+      
+      if (dateHeader) {
+        try {
+          // Parse the date header and convert to standard format
+          const dateObj = new Date(dateHeader);
+          timestamp = dateObj.toISOString();
+        } catch (e) {
+          console.error('Error parsing date header:', e);
+          // If parsing fails, use the original header value
+          timestamp = dateHeader;
+        }
+      }
       
       return {
-        messageId,
         threadId: message.threadId || undefined,
-        headers,
-        subject,
-        from,
-        to,
-        content,
-        labels,
+        messageId: message.id || messageId,
+        headers: headers,
+        subject: headers.find(h => h.name?.toLowerCase() === 'subject')?.value || '',
+        from: headers.find(h => h.name?.toLowerCase() === 'from')?.value || '',
+        to: (headers.find(h => h.name?.toLowerCase() === 'to')?.value || '').split(',').map(e => e.trim()),
+        content: this.extractContent(message),
+        labels: labels,
         isUnread,
         category,
         isInInbox,
-        timestamp: formattedTimestamp,
-        attachments: []  // Placeholder for attachments that would be fetched on demand
+        timestamp,
+        attachments: this.extractAttachments(message),
       };
     } catch (error) {
-      console.error('Error fetching message:', error);
-      throw new Error(`Failed to fetch message: ${(error as Error).message}`);
+      throw new Error(`Failed to get message: ${error}`);
     }
   }
 

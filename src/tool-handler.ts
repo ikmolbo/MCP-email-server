@@ -16,8 +16,6 @@ import {
   unarchiveMessageTool,
   trashMessageTool
 } from "./tools/email-label-tools.js";
-import * as timezoneTools from './tools/timezone-tool.js';
-import { z } from 'zod';
 
 export interface ToolHandler {
   (client: GmailClientWrapper, params: Record<string, unknown>): Promise<unknown>;
@@ -25,20 +23,6 @@ export interface ToolHandler {
 
 export type ExtendedTool = Tool & {
   handler: ToolHandler;
-};
-
-// Create timezone tool schema
-const getTimeZoneSchema = {
-  type: "object" as const,
-  properties: {}
-};
-
-// Define timezone tool
-const getTimeZoneTool: ExtendedTool = {
-  name: "get_timezone",
-  description: "Get current timezone settings and time information",
-  inputSchema: getTimeZoneSchema,
-  handler: timezoneTools.getCurrentTimeZone
 };
 
 export const tools = [
@@ -60,10 +44,7 @@ export const tools = [
   markAsUnreadTool,
   archiveMessageTool,
   unarchiveMessageTool,
-  trashMessageTool,
-  
-  // Timezone tool
-  getTimeZoneTool
+  trashMessageTool
 ] as ExtendedTool[];
 
 export function createToolHandler(client: GmailClientWrapper) {

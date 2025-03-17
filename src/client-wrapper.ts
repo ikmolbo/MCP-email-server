@@ -173,10 +173,8 @@ export class GmailClientWrapper {
       const to = (toHeader?.value || '').split(',').map(e => e.trim());
       const timestamp = dateHeader?.value || '';
       
-      // Extract and adjust timestamp to configured timezone
-      const date = new Date(timestamp);
-      const adjustedDate = adjustDateToTimeZone(date);
-      const formattedTimestamp = adjustedDate.toISOString().replace('T', ' ').substring(0, 19);
+      // Folosim formatTimestamp pentru afișarea în fusul orar corect
+      const formattedTimestamp = formatTimestamp(timestamp).replace('Received: ', '');
       
       // Process message content
       const { text, html } = extractEmailContent(message.payload as GmailMessagePart);

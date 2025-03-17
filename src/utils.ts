@@ -153,33 +153,10 @@ export function adjustDateToTimeZone(date: Date): Date {
   }
   
   try {
-    // Format the date in the target timezone
-    const options: Intl.DateTimeFormatOptions = {
-      timeZone: targetTz,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    };
-    
-    // Get the date components in target timezone
-    const formatter = new Intl.DateTimeFormat('en-US', options);
-    const parts = formatter.formatToParts(date);
-    
-    // Extract date parts
-    const year = parts.find(part => part.type === 'year')?.value;
-    const month = parts.find(part => part.type === 'month')?.value;
-    const day = parts.find(part => part.type === 'day')?.value;
-    const hour = parts.find(part => part.type === 'hour')?.value;
-    const minute = parts.find(part => part.type === 'minute')?.value;
-    const second = parts.find(part => part.type === 'second')?.value;
-    
-    // Construct date string in ISO format
-    const tzDate = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
-    return new Date(tzDate);
+    // Nu modificăm data în sine, doar o formatăm pentru afișare în fusul orar corect
+    // Returnăm data originală, deoarece Gmail API oferă deja timestamp-uri UTC
+    // Formatarea pentru afișare se va face separat, în funcția formatTimestamp
+    return date;
   } catch (error) {
     console.warn(`Error adjusting date to timezone ${targetTz}:`, error);
     return date; // Return original date if conversion fails
@@ -192,9 +169,19 @@ export function formatTimestamp(timestamp?: string): string {
   
   try {
     const date = new Date(timestamp);
-    const adjustedDate = adjustDateToTimeZone(date);
-    // Format as ISO but replace T with space and keep only date and time
-    return `Received: ${adjustedDate.toISOString().replace('T', ' ').substring(0, 19)}`;
+    // Format using Intl.DateTimeFormat cu fusul orar corect
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: VALIDATED_TIME_ZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+
+    return `Received: ${formatter.format(date).replace(',', '').replace(/\//g, '-')}`;
   } catch (e) {
     // If parsing fails, return the raw timestamp
     return `Received: ${timestamp}`;

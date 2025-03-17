@@ -218,25 +218,21 @@ export const replyAllEmailTool: Tool = {
         fromAddress = await client.determineReplyFromAddress(originalEmail);
       }
       
-      // Obținem toate adresele noastre de email pentru filtrare
-      const aliases = await client.getSendAsAliases();
-      const myEmails = aliases
-        .filter(alias => alias.sendAsEmail)
-        .map(alias => alias.sendAsEmail!.toLowerCase());
-      
-      // Lista de destinatari care trebuie excluși (adresele noastre + cele specificate explicit)
-      const excludeEmails = [
-        ...myEmails,
-        ...(params.excludeRecipients 
-          ? params.excludeRecipients.map(addr => client.extractEmailAddress(addr).toLowerCase()) 
-          : [])
-      ];
-      
       // Filtrăm destinatarii pentru a exclude adresele proprii și cele specificate manual
-      const filteredRecipients = allRecipients.filter(recipient => {
-        const email = client.extractEmailAddress(recipient).toLowerCase();
-        return !excludeEmails.includes(email);
-      });
+      // folosind metoda filterOutOwnAddresses oferită de client
+      let filteredRecipients = await client.filterOutOwnAddresses(allRecipients);
+      
+      // Aplicăm și excluderile explicite specificate de utilizator
+      if (params.excludeRecipients && params.excludeRecipients.length > 0) {
+        const excludeEmails = params.excludeRecipients.map(
+          addr => client.extractEmailAddress(addr).toLowerCase()
+        );
+        
+        filteredRecipients = filteredRecipients.filter(recipient => {
+          const email = client.extractEmailAddress(recipient).toLowerCase();
+          return !excludeEmails.includes(email);
+        });
+      }
       
       // Expeditorul original merge în To, restul în CC
       const to = [originalSender];
@@ -245,6 +241,9 @@ export const replyAllEmailTool: Tool = {
         const senderEmail = client.extractEmailAddress(originalSender).toLowerCase();
         return recipientEmail !== senderEmail;
       });
+      
+      // Filtrăm și lista 'to' pentru a exclude adresele proprii
+      const filteredTo = await client.filterOutOwnAddresses(to);
       
       // Extrage referințele existente pentru threading corect
       let references: string[] = [];
@@ -268,7 +267,7 @@ export const replyAllEmailTool: Tool = {
       
       // Trimite răspunsul către toți
       const result = await client.sendMessage({
-        to,
+        to: filteredTo,
         cc,
         subject,
         content: params.body,
@@ -281,7 +280,7 @@ export const replyAllEmailTool: Tool = {
       return {
         messageId: result.messageId,
         threadId: result.threadId,
-        to,
+        to: filteredTo,
         cc,
         subject,
         from: fromAddress
@@ -439,6 +438,8 @@ export const forwardEmailTool: Tool = {
         cc: filteredCc,
         subject,
         content,
+        // Adăugăm threadId de la emailul original pentru a menține conversația
+        threadId: originalEmail.threadId,
         from: fromAddress,
       });
       

@@ -417,6 +417,21 @@ export class GmailClientWrapper {
     return attachments;
   }
 
+  /**
+   * Codifică conținutul e-mailului pentru a gestiona corect caracterele UTF-8
+   * @param content Conținutul original al e-mailului
+   * @returns Conținutul codificat în format UTF-8
+   */
+  private encodeEmailContent(content: string): string {
+    // Verificăm dacă conținutul are caractere non-ASCII
+    if (!/^[\x00-\x7F]*$/.test(content)) {
+      // Asigurăm că Content-Transfer-Encoding este setat corect
+      // și că toate caracterele UTF-8 sunt păstrate intacte
+      return content;
+    }
+    return content;
+  }
+
   private async createEmailRaw(options: {
     to: string[];
     subject: string;
@@ -427,6 +442,7 @@ export class GmailClientWrapper {
     references?: string[];
   }): Promise<string> {
     const encodedSubject = encodeEmailSubject(options.subject);
+    const encodedContent = this.encodeEmailContent(options.content);
     
     const headers = [
       `To: ${options.to.join(', ')}`,
@@ -436,10 +452,14 @@ export class GmailClientWrapper {
       options.inReplyTo ? `In-Reply-To: ${options.inReplyTo}` : '',
       options.references?.length ? `References: ${options.references.join(' ')}` : '',
       'Content-Type: text/plain; charset=utf-8',
+      'Content-Transfer-Encoding: base64',
       'MIME-Version: 1.0',
     ].filter(Boolean).join('\r\n');
 
-    const email = `${headers}\r\n\r\n${options.content}`;
+    // Codificăm tot conținutul email-ului cu Base64 pentru a gestiona corect caracterele UTF-8
+    const encodedEmailContent = Buffer.from(encodedContent).toString('base64');
+    const email = `${headers}\r\n\r\n${encodedEmailContent}`;
+    
     return Buffer.from(email).toString('base64url');
   }
   

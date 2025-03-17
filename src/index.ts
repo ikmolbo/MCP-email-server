@@ -29,7 +29,8 @@ import {
   getTodayDateQuery,
   getTomorrowDateQuery,
   getYesterdayDateQuery,
-  ensureCorrectUnreadSyntax 
+  ensureCorrectUnreadSyntax,
+  formatTimestamp
 } from './utils.js';
 import { authenticate as googleAuthenticate } from '@google-cloud/local-auth';
 import { dirname } from 'path';
@@ -63,13 +64,15 @@ const SendEmailSchema = z.object({
 
 const GetRecentEmailsSchema = z.object({
   hours: z.number().optional().default(24).describe("Number of hours to look back (default: 24, can be omitted when using date filters in query)"),
-  maxResults: z.number().default(10).describe("Maximum number of results to return (default: 10)"),
+  maxResults: z.number().default(25).describe("Maximum number of results to return (default: 25)"),
   query: z.string().optional().describe("Additional Gmail search query (e.g., 'label:unread', 'after:YYYY/MM/DD')"),
   pageToken: z.string().optional().describe("Token for the next page of results"),
   category: z.enum(['primary', 'social', 'promotions', 'updates', 'forums']).optional()
     .describe("Filter by Gmail category (primary, social, promotions, updates, forums)"),
   timeFilter: z.enum(['today', 'yesterday', 'last24h']).optional()
-    .describe("Predefined time filter: 'today' (calendar date), 'yesterday' (calendar date), or 'last24h' (24 hour window)")
+    .describe("Predefined time filter: 'today' (calendar date), 'yesterday' (calendar date), or 'last24h' (24 hour window)"),
+  autoFetchAll: z.boolean().optional().default(false)
+    .describe("Automatically fetch all results (up to 100 items) without requiring pagination")
 });
 
 const ReadEmailSchema = z.object({
@@ -78,12 +81,14 @@ const ReadEmailSchema = z.object({
 
 const SearchEmailsSchema = z.object({
   query: z.string().describe("Gmail search query (e.g., 'label:unread', 'after:YYYY/MM/DD')"),
-  maxResults: z.number().optional().default(10).describe("Maximum number of results to return"),
+  maxResults: z.number().optional().default(25).describe("Maximum number of results to return (default: 25)"),
   pageToken: z.string().optional().describe("Token for the next page of results"),
   category: z.enum(['primary', 'social', 'promotions', 'updates', 'forums']).optional()
     .describe("Filter by Gmail category (primary, social, promotions, updates, forums)"),
   timeFilter: z.enum(['today', 'yesterday', 'last24h']).optional()
-    .describe("Predefined time filter: 'today' (calendar date), 'yesterday' (calendar date), or 'last24h' (24 hour window)")
+    .describe("Predefined time filter: 'today' (calendar date), 'yesterday' (calendar date), or 'last24h' (24 hour window)"),
+  autoFetchAll: z.boolean().optional().default(false)
+    .describe("Automatically fetch all results (up to 100 items) without requiring pagination")
 });
 
 // Load OAuth credentials
@@ -410,7 +415,8 @@ async function main() {
               pageSize: args.maxResults,
               pageToken: args.pageToken,
               query: fullQuery,
-              category: args.category
+              category: args.category,
+              autoFetchAll: args.autoFetchAll
             });
             
             if (result.items.length === 0) {
@@ -476,6 +482,7 @@ async function main() {
               responseText += `   Subject: ${email.subject}\n`;
               responseText += `   From: ${email.from}\n`;
               responseText += `   To: ${email.to.join(', ')}\n`;
+              responseText += `   ${formatTimestamp(email.timestamp)}\n`;
               responseText += `   Snippet: ${email.content.substring(0, 100)}...\n\n`;
             });
             
@@ -483,6 +490,14 @@ async function main() {
               responseText += `\nNext page token: ${result.nextPageToken}\n`;
               responseText += `Total estimated results: ${result.resultSizeEstimate}\n`;
               responseText += `\nTo get the next page, use this token with the same query parameters.`;
+              responseText += `\nAlternatively, you can use autoFetchAll:true to automatically retrieve up to 100 emails without manual pagination.`;
+            }
+            
+            // Add clarification about category vs label
+            if (args.category) {
+              responseText += `\n\nNOTE: You searched in the "${args.category}" Gmail category. ` +
+                `This is different from Gmail labels. Categories are fixed Gmail inbox sections ` +
+                `(primary, social, promotions, updates, forums), while labels are custom tags.`;
             }
             
             return {
@@ -583,7 +598,8 @@ async function main() {
               pageSize: args.maxResults,
               pageToken: args.pageToken,
               query: fullQuery,
-              category: args.category
+              category: args.category,
+              autoFetchAll: args.autoFetchAll
             });
             
             if (result.items.length === 0) {
@@ -656,6 +672,7 @@ async function main() {
               responseText += `   Subject: ${email.subject}\n`;
               responseText += `   From: ${email.from}\n`;
               responseText += `   To: ${email.to.join(', ')}\n`;
+              responseText += `   ${formatTimestamp(email.timestamp)}\n`;
               responseText += `   Snippet: ${email.content.substring(0, 100)}...\n\n`;
             });
             
@@ -663,6 +680,14 @@ async function main() {
               responseText += `\nNext page token: ${result.nextPageToken}\n`;
               responseText += `Total estimated results: ${result.resultSizeEstimate}\n`;
               responseText += `\nTo get the next page, use this token with the same query parameters.`;
+              responseText += `\nAlternatively, you can use autoFetchAll:true to automatically retrieve up to 100 emails without manual pagination.`;
+            }
+            
+            // Add clarification about category vs label
+            if (args.category) {
+              responseText += `\n\nNOTE: You searched in the "${args.category}" Gmail category. ` +
+                `This is different from Gmail labels. Categories are fixed Gmail inbox sections ` +
+                `(primary, social, promotions, updates, forums), while labels are custom tags.`;
             }
             
             return {

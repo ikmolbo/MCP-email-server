@@ -13,23 +13,27 @@ import {
 // Schema definitions
 const GetRecentEmailsSchema = z.object({
   hours: z.number().optional().default(24).describe("Number of hours to look back (default: 24, can be omitted when using date filters in query)"),
-  maxResults: z.number().default(10).describe("Maximum number of results to return (default: 10)"),
+  maxResults: z.number().default(25).describe("Maximum number of results to return (default: 25)"),
   query: z.string().optional().describe("Additional Gmail search query (e.g., 'label:unread', 'after:YYYY/MM/DD')"),
   pageToken: z.string().optional().describe("Token for the next page of results"),
   category: z.enum(['primary', 'social', 'promotions', 'updates', 'forums']).optional()
     .describe("Filter by Gmail category (primary, social, promotions, updates, forums)"),
   timeFilter: z.enum(['today', 'yesterday', 'last24h']).optional()
-    .describe("Predefined time filter: 'today' (calendar date), 'yesterday' (calendar date), or 'last24h' (24 hour window)")
+    .describe("Predefined time filter: 'today' (calendar date), 'yesterday' (calendar date), or 'last24h' (24 hour window)"),
+  autoFetchAll: z.boolean().optional().default(false)
+    .describe("Automatically fetch all results (up to 100 items) without requiring pagination")
 });
 
 const SearchEmailsSchema = z.object({
   query: z.string().describe("Gmail search query (e.g., 'label:unread', 'after:YYYY/MM/DD')"),
-  maxResults: z.number().optional().default(10).describe("Maximum number of results to return"),
+  maxResults: z.number().optional().default(25).describe("Maximum number of results to return (default: 25)"),
   pageToken: z.string().optional().describe("Token for the next page of results"),
   category: z.enum(['primary', 'social', 'promotions', 'updates', 'forums']).optional()
     .describe("Filter by Gmail category (primary, social, promotions, updates, forums)"),
   timeFilter: z.enum(['today', 'yesterday', 'last24h']).optional()
-    .describe("Predefined time filter: 'today' (calendar date), 'yesterday' (calendar date), or 'last24h' (24 hour window)")
+    .describe("Predefined time filter: 'today' (calendar date), 'yesterday' (calendar date), or 'last24h' (24 hour window)"),
+  autoFetchAll: z.boolean().optional().default(false)
+    .describe("Automatically fetch all results (up to 100 items) without requiring pagination")
 });
 
 export const searchEmailsTool: Tool = {
@@ -44,7 +48,7 @@ export const searchEmailsTool: Tool = {
       },
       maxResults: {
         type: "number",
-        description: "Maximum number of results to return (default: 10)"
+        description: "Maximum number of results to return (default: 25)"
       },
       pageToken: {
         type: "string",
@@ -59,6 +63,10 @@ export const searchEmailsTool: Tool = {
         type: "string",
         enum: ["today", "yesterday", "last24h"],
         description: "Predefined time filter: 'today' (calendar date), 'yesterday' (calendar date), or 'last24h' (24 hour window)"
+      },
+      autoFetchAll: {
+        type: "boolean",
+        description: "Automatically fetch all results (up to 100 items) without requiring pagination"
       }
     },
     required: ["query"]
@@ -69,6 +77,7 @@ export const searchEmailsTool: Tool = {
     pageToken?: string;
     category?: 'primary' | 'social' | 'promotions' | 'updates' | 'forums';
     timeFilter?: 'today' | 'yesterday' | 'last24h';
+    autoFetchAll?: boolean;
   }) => {
     // Start with user provided query
     let fullQuery = params.query || '';
@@ -101,10 +110,11 @@ export const searchEmailsTool: Tool = {
     }
     
     const result = await client.listMessages({
-      pageSize: params.maxResults || 10,
+      pageSize: params.maxResults || 25,
       pageToken: params.pageToken,
       query: fullQuery,
-      category: params.category
+      category: params.category,
+      autoFetchAll: params.autoFetchAll || false
     });
 
     if (result.items.length === 0) {
@@ -137,23 +147,43 @@ export const searchEmailsTool: Tool = {
     // Check if query contains 'label:unread' to highlight unread status in response
     const isUnreadSearch = fullQuery.includes('label:unread');
     
+    const emails = result.items.map(email => ({
+      messageId: email.messageId,
+      threadId: email.threadId,
+      subject: email.subject,
+      from: email.from,
+      to: email.to,
+      snippet: email.content.substring(0, 100),
+      isUnread: email.labels?.includes('UNREAD') || false,
+      category: email.category,
+      received: email.timestamp ? formatTimestamp(email.timestamp) : 'Unknown'
+    }));
+    
+    // Create pagination message
+    let paginationMessage = "";
+    if (result.nextPageToken) {
+      const estimatedRemaining = result.resultSizeEstimate - emails.length;
+      paginationMessage = `\n\nThere are approximately ${estimatedRemaining} more results available.\n` +
+        `To fetch the next page, use pageToken: "${result.nextPageToken}"\n` +
+        `Alternatively, you can use autoFetchAll:true to automatically retrieve up to 100 emails without manual pagination.`;
+    }
+    
+    // Add clarification about category vs label
+    const categoryMessage = params.category ? 
+      `\n\nNOTE: You searched in the "${params.category}" Gmail category. ` +
+      `This is different from Gmail labels. Categories are fixed Gmail inbox sections ` +
+      `(primary, social, promotions, updates, forums), while labels are custom tags.` : "";
+    
     return {
-      emails: result.items.map(email => ({
-        messageId: email.messageId,
-        threadId: email.threadId,
-        subject: email.subject,
-        from: email.from,
-        to: email.to,
-        snippet: email.content.substring(0, 100),
-        isUnread: email.labels?.includes('UNREAD') || false,
-        category: email.category
-      })),
+      emails: emails,
       nextPageToken: result.nextPageToken,
       resultSizeEstimate: result.resultSizeEstimate,
       query: fullQuery,
       timeFilter: params.timeFilter,
       category: params.category,
-      isUnreadSearch: isUnreadSearch
+      isUnreadSearch: isUnreadSearch,
+      paginationHelp: paginationMessage,
+      categoryHelp: categoryMessage
     };
   }
 };
@@ -170,7 +200,7 @@ export const getRecentEmailsTool: Tool = {
       },
       maxResults: {
         type: "number",
-        description: "Maximum number of results to return (default: 10)"
+        description: "Maximum number of results to return (default: 25)"
       },
       query: {
         type: "string",
@@ -189,6 +219,10 @@ export const getRecentEmailsTool: Tool = {
         type: "string",
         enum: ["today", "yesterday", "last24h"],
         description: "Predefined time filter: 'today' (calendar date), 'yesterday' (calendar date), or 'last24h' (24 hour window)"
+      },
+      autoFetchAll: {
+        type: "boolean",
+        description: "Automatically fetch all results (up to 100 items) without requiring pagination"
       }
     }
   },
@@ -199,6 +233,7 @@ export const getRecentEmailsTool: Tool = {
     pageToken?: string;
     category?: 'primary' | 'social' | 'promotions' | 'updates' | 'forums';
     timeFilter?: 'today' | 'yesterday' | 'last24h';
+    autoFetchAll?: boolean;
   }) => {
     // Start with empty query or user-provided query
     let fullQuery = params.query || '';
@@ -241,10 +276,11 @@ export const getRecentEmailsTool: Tool = {
     }
     
     const result = await client.listMessages({
-      pageSize: params.maxResults || 10,
+      pageSize: params.maxResults || 25,
       pageToken: params.pageToken,
       query: fullQuery,
-      category: params.category
+      category: params.category,
+      autoFetchAll: params.autoFetchAll || false
     });
     
     if (result.items.length === 0) {
@@ -275,23 +311,70 @@ export const getRecentEmailsTool: Tool = {
       return { message: noResultsMessage };
     }
     
+    // Customize response text based on time filter
+    let timeDescription: string;
+    if (params.timeFilter === 'today') {
+      timeDescription = `today (${getTodayDateQuery()})`;
+    } else if (params.timeFilter === 'yesterday') {
+      timeDescription = `yesterday (${getYesterdayDateQuery()})`;
+    } else if (params.timeFilter === 'last24h') {
+      timeDescription = `the last 24 hours`;
+    } else if (params.hours) {
+      timeDescription = `the last ${params.hours} hours`;
+    } else if (fullQuery.includes('after:') || fullQuery.includes('before:')) {
+      timeDescription = `matching date filter: ${fullQuery}`;
+    } else {
+      timeDescription = `today (${getTodayDateQuery()})`;
+    }
+    
+    const emails = result.items.map(email => ({
+      messageId: email.messageId,
+      threadId: email.threadId,
+      subject: email.subject,
+      from: email.from,
+      to: email.to,
+      snippet: email.content.substring(0, 100),
+      isUnread: email.labels?.includes('UNREAD') || false,
+      category: email.category,
+      isInInbox: email.isInInbox,
+      received: email.timestamp ? formatTimestamp(email.timestamp) : 'Unknown'
+    }));
+    
+    // Create pagination message
+    let paginationMessage = "";
+    if (result.nextPageToken) {
+      const estimatedRemaining = result.resultSizeEstimate - emails.length;
+      paginationMessage = `\n\nThere are approximately ${estimatedRemaining} more results available.\n` +
+        `To fetch the next page, use pageToken: "${result.nextPageToken}"\n` +
+        `Alternatively, you can use autoFetchAll:true to automatically retrieve up to 100 emails without manual pagination.`;
+    }
+    
+    // Add clarification about category vs label
+    const categoryMessage = params.category ? 
+      `\n\nNOTE: You searched in the "${params.category}" Gmail category. ` +
+      `This is different from Gmail labels. Categories are fixed Gmail inbox sections ` +
+      `(primary, social, promotions, updates, forums), while labels are custom tags.` : "";
+    
     return {
-      emails: result.items.map(email => ({
-        messageId: email.messageId,
-        threadId: email.threadId,
-        subject: email.subject,
-        from: email.from,
-        to: email.to,
-        snippet: email.content.substring(0, 100),
-        isUnread: email.labels?.includes('UNREAD') || false,
-        category: email.category
-      })),
+      emails: emails,
+      timeDescription: timeDescription,
       nextPageToken: result.nextPageToken,
       resultSizeEstimate: result.resultSizeEstimate,
       query: fullQuery,
-      timeFilter: params.timeFilter,
       category: params.category,
-      isUnreadSearch: fullQuery.includes('label:unread')
+      paginationHelp: paginationMessage,
+      categoryHelp: categoryMessage
     };
   }
-}; 
+};
+
+// Helper to format timestamp in a standardized way
+function formatTimestamp(timestamp: string): string {
+  try {
+    const date = new Date(timestamp);
+    return `Received: ${date.toISOString().replace('T', ' ').substring(0, 19)}`;
+  } catch (e) {
+    // If parsing fails, return the raw timestamp
+    return `Received: ${timestamp}`;
+  }
+} 

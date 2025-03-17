@@ -1,3 +1,5 @@
+import config from './config.js';
+
 // Email message creation utility
 export interface EmailOptions {
   to: string[];
@@ -11,12 +13,29 @@ export interface EmailOptions {
   from?: string;
 }
 
+/**
+ * Codifică subiectul e-mailului conform RFC 2047 pentru a gestiona corect caracterele non-ASCII
+ * @param subject Subiectul original al e-mailului
+ * @returns Subiectul codificat pentru a fi compatibil cu headerele e-mailului
+ */
+export function encodeEmailSubject(subject: string): string {
+  // Verifică dacă subiectul conține caractere non-ASCII
+  if (!/^[\x00-\x7F]*$/.test(subject)) {
+    // Codifică subiectul ca Base64 conform RFC 2047
+    const encodedSubject = Buffer.from(subject).toString('base64');
+    return `=?UTF-8?B?${encodedSubject}?=`;
+  }
+  // Returnează subiectul neschimbat dacă conține doar ASCII
+  return subject;
+}
+
 export function createEmailMessage(args: EmailOptions) {
   const fromHeader = args.from ? `From: ${args.from}\r\n` : '';
   const toHeader = `To: ${args.to.join(', ')}\r\n`;
   const ccHeader = args.cc && args.cc.length > 0 ? `Cc: ${args.cc.join(', ')}\r\n` : '';
   const bccHeader = args.bcc && args.bcc.length > 0 ? `Bcc: ${args.bcc.join(', ')}\r\n` : '';
-  const subjectHeader = `Subject: ${args.subject}\r\n`;
+  const encodedSubject = encodeEmailSubject(args.subject);
+  const subjectHeader = `Subject: ${encodedSubject}\r\n`;
   const contentType = 'Content-Type: text/plain; charset=utf-8\r\n';
   const inReplyToHeader = args.inReplyTo ? `In-Reply-To: <${args.inReplyTo}>\r\n` : '';
   const referencesHeader = args.references && args.references.length > 0 
@@ -124,31 +143,93 @@ export function getAttachments(messagePart: GmailMessagePart): EmailAttachment[]
   return attachments;
 }
 
-// Format date for Gmail query
-export function getDateQuery(hoursAgo: number): string {
-  const date = new Date();
-  date.setHours(date.getHours() - hoursAgo);
-  return date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+// Helper function to adjust a date to the configured timezone
+export function adjustDateToTimeZone(date: Date): Date {
+  const targetTz = config.timeZone;
+  
+  // If timezone is UTC, no adjustment needed
+  if (targetTz === 'UTC') {
+    return new Date(date);
+  }
+  
+  try {
+    // Format the date in the target timezone
+    const options: Intl.DateTimeFormatOptions = {
+      timeZone: targetTz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    };
+    
+    // Get the date components in target timezone
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+    const parts = formatter.formatToParts(date);
+    
+    // Extract date parts
+    const year = parts.find(part => part.type === 'year')?.value;
+    const month = parts.find(part => part.type === 'month')?.value;
+    const day = parts.find(part => part.type === 'day')?.value;
+    const hour = parts.find(part => part.type === 'hour')?.value;
+    const minute = parts.find(part => part.type === 'minute')?.value;
+    const second = parts.find(part => part.type === 'second')?.value;
+    
+    // Construct date string in ISO format
+    const tzDate = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+    return new Date(tzDate);
+  } catch (error) {
+    console.warn(`Error adjusting date to timezone ${targetTz}:`, error);
+    return date; // Return original date if conversion fails
+  }
+}
+
+// Helper function to format timestamp in a standardized way
+export function formatTimestamp(timestamp?: string): string {
+  if (!timestamp) return 'Received: Unknown';
+  
+  try {
+    const date = new Date(timestamp);
+    const adjustedDate = adjustDateToTimeZone(date);
+    // Format as ISO but replace T with space and keep only date and time
+    return `Received: ${adjustedDate.toISOString().replace('T', ' ').substring(0, 19)}`;
+  } catch (e) {
+    // If parsing fails, return the raw timestamp
+    return `Received: ${timestamp}`;
+  }
 }
 
 // Function to get today's date in Gmail query format (YYYY/MM/DD)
 export function getTodayDateQuery(): string {
   const today = new Date();
-  return `${today.getFullYear()}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getDate().toString().padStart(2, '0')}`;
+  const adjustedDate = adjustDateToTimeZone(today);
+  return `${adjustedDate.getFullYear()}/${(adjustedDate.getMonth() + 1).toString().padStart(2, '0')}/${adjustedDate.getDate().toString().padStart(2, '0')}`;
 }
 
 // Function to get tomorrow's date in Gmail query format
 export function getTomorrowDateQuery(): string {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  return `${tomorrow.getFullYear()}/${(tomorrow.getMonth() + 1).toString().padStart(2, '0')}/${tomorrow.getDate().toString().padStart(2, '0')}`;
+  const adjustedDate = adjustDateToTimeZone(tomorrow);
+  return `${adjustedDate.getFullYear()}/${(adjustedDate.getMonth() + 1).toString().padStart(2, '0')}/${adjustedDate.getDate().toString().padStart(2, '0')}`;
 }
 
 // Function to get yesterday's date in Gmail query format
 export function getYesterdayDateQuery(): string {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  return `${yesterday.getFullYear()}/${(yesterday.getMonth() + 1).toString().padStart(2, '0')}/${yesterday.getDate().toString().padStart(2, '0')}`;
+  const adjustedDate = adjustDateToTimeZone(yesterday);
+  return `${adjustedDate.getFullYear()}/${(adjustedDate.getMonth() + 1).toString().padStart(2, '0')}/${adjustedDate.getDate().toString().padStart(2, '0')}`;
+}
+
+// Format date for Gmail query
+export function getDateQuery(hoursAgo: number): string {
+  const date = new Date();
+  date.setHours(date.getHours() - hoursAgo);
+  const adjustedDate = adjustDateToTimeZone(date);
+  return adjustedDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
 }
 
 // Function to create a Gmail query for emails received today
@@ -168,17 +249,4 @@ export function ensureCorrectUnreadSyntax(query: string): string {
     return query.replace(/is:unread/g, 'label:unread');
   }
   return query;
-}
-
-// Helper function to format timestamp in a standardized way
-export function formatTimestamp(timestamp?: string): string {
-  if (!timestamp) return 'Received: Unknown';
-  
-  try {
-    const date = new Date(timestamp);
-    return `Received: ${date.toISOString().replace('T', ' ').substring(0, 19)}`;
-  } catch (e) {
-    // If parsing fails, return the raw timestamp
-    return `Received: ${timestamp}`;
-  }
 } 

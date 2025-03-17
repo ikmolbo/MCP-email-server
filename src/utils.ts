@@ -1,4 +1,4 @@
-import config from './config.js';
+import { VALIDATED_TIME_ZONE } from './index.js';
 
 // Email message creation utility
 export interface EmailOptions {
@@ -145,7 +145,7 @@ export function getAttachments(messagePart: GmailMessagePart): EmailAttachment[]
 
 // Helper function to adjust a date to the configured timezone
 export function adjustDateToTimeZone(date: Date): Date {
-  const targetTz = config.timeZone;
+  const targetTz = VALIDATED_TIME_ZONE;
   
   // If timezone is UTC, no adjustment needed
   if (targetTz === 'UTC') {

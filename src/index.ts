@@ -49,6 +49,31 @@ const CONFIG_DIR = path.join(os.homedir(), '.email-mcp');
 const OAUTH_PATH = process.env.GMAIL_OAUTH_PATH || path.join(CONFIG_DIR, 'gcp-oauth.keys.json');
 const CREDENTIALS_PATH = process.env.GMAIL_CREDENTIALS_PATH || path.join(CONFIG_DIR, 'credentials.json');
 
+// Time zone configuration - direct from environment variable
+const TIME_ZONE = process.env.TIME_ZONE || 'UTC';
+console.error(`Using time zone: ${TIME_ZONE}`);
+
+// Function to validate time zone format
+function isValidTimeZone(tz: string): boolean {
+  try {
+    // A simple test to see if the timezone is supported
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch (e) {
+    // Some environments support GMT+X or numeric offset formats
+    if (/^GMT[+-]\d{1,2}$/.test(tz) || /^[+-]\d{2}:?\d{2}$/.test(tz)) {
+      return true;
+    }
+    return false;
+  }
+}
+
+// Validate time zone - falls back to UTC if invalid
+export const VALIDATED_TIME_ZONE = isValidTimeZone(TIME_ZONE) ? TIME_ZONE : 'UTC';
+if (VALIDATED_TIME_ZONE !== TIME_ZONE) {
+  console.warn(`Invalid timezone: ${TIME_ZONE}, falling back to UTC`);
+}
+
 // OAuth2 client
 let oauth2Client: OAuth2Client;
 

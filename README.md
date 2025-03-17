@@ -26,7 +26,8 @@ src/
 └── tools/                   # Tool implementations by domain
     ├── email-read-tools.ts  # Tools for reading emails
     ├── email-send-tools.ts  # Tools for sending emails
-    └── email-search-tools.ts # Tools for searching and filtering emails
+    ├── email-search-tools.ts # Tools for searching and filtering emails
+    └── email-label-tools.ts # Tools for managing labels and message states
 ```
 
 ### Core Components
@@ -38,6 +39,10 @@ src/
 - **prompt-handler.ts**: Manages templates and examples for common Gmail operations
 - **utils.ts**: Provides utility functions for date formatting, email creation, and content extraction
 - **tools/**: Contains domain-specific implementations for email operations
+  - **email-read-tools.ts**: Tools for reading emails and extracting content
+  - **email-send-tools.ts**: Tools for composing and sending emails
+  - **email-search-tools.ts**: Tools for finding emails with various filters
+  - **email-label-tools.ts**: Tools for managing labels and message states (read/unread, archive/unarchive)
 
 ## Features
 
@@ -56,6 +61,14 @@ src/
 - **Unread Status**: Automatic handling of unread email filtering
 - **HTML Content**: Process and display both HTML and plain text email content
 - **Thread Context**: Maintain email threading for proper conversation context
+
+### Label Management
+
+- **Custom Labels**: Create, update, and delete custom labels
+- **Label Visibility**: Control visibility of labels in message list and label list
+- **Label Colors**: Configure text and background colors for visual organization
+- **Message States**: Mark messages as read/unread, archive/unarchive messages
+- **Trash Management**: Move messages to trash
 
 ## Installation
 
@@ -299,6 +312,11 @@ Parameters:
 - "Search for emails from jane@example.com"
 - "Find unread emails in my Primary category from yesterday"
 - "Show me promotional emails containing 'discount' received today"
+- "Create a new label called 'Project X' with blue background"
+- "Show all my Gmail labels"
+- "Mark this email as unread"
+- "Archive all emails from this newsletter"
+- "Move this email to my 'Important' label"
 
 ## Contributing
 

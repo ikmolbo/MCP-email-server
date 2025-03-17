@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.6.0] - 2024-03-17
+
+### Added
+- Complete label management functionality:
+  - Added tools for listing, creating, updating, and deleting labels
+  - Implemented tools for modifying labels on messages
+  - Added capabilities for marking messages as read/unread
+  - Implemented tools for archiving/unarchiving messages
+  - Added support for moving messages to trash
+- New Gmail label management tools:
+  - `list_labels`: Lists all labels in the user's mailbox
+  - `get_label`: Gets details of a specific label
+  - `create_label`: Creates a new label with customizable visibility and colors
+  - `update_label`: Updates an existing label's properties
+  - `delete_label`: Deletes a label from the mailbox
+  - `modify_labels`: Adds/removes labels from a message
+- Message state management tools:
+  - `mark_as_read`: Removes the UNREAD label from a message
+  - `mark_as_unread`: Adds the UNREAD label to a message
+  - `archive_message`: Removes the INBOX label from a message
+  - `unarchive_message`: Adds the INBOX label to a message
+  - `trash_message`: Moves a message to trash
+
+### Changed
+- Extended GmailClientWrapper with comprehensive label management methods
+- Added detailed prompt templates for label operations
+- Updated documentation with examples for label management tools
+
 ## [0.5.0] - 2024-03-17
 
 ### Added

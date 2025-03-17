@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.7.0] - 2024-03-18
+
+### Added
+- Enhanced multi-account email management:
+  - Implemented the `list_send_as_accounts` tool to show all available send-as accounts
+  - Added automatic email address selection based on the recipient of the original email
+  - Added support for manually specifying sending address with the `from` parameter
+- New forwarding functionality:
+  - Implemented the `forward_email` tool for forwarding emails to other recipients
+  - Added support for adding custom content before the forwarded message
+  - Preserved original message headers (From, Date, Subject, To, Cc)
+  - Maintained thread context with original email using threadId
+
+### Improved
+- Better reply functionality:
+  - Improved filtering of own email addresses from recipients in reply-all operations
+  - Enhanced reply-all to maintain threading correctly
+- Enhanced email content handling:
+  - Improved UTF-8 encoding for email body content
+  - Added base64 content encoding for proper handling of non-ASCII characters
+  - Fixed character encoding issues in message bodies
+  - Implemented Content-Transfer-Encoding for reliable delivery of international characters
+
 ## [0.6.1] - 2024-03-17
 
 ### Fixed

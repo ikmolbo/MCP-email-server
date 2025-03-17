@@ -18,15 +18,15 @@ By implementing the Model Context Protocol, it gives Claude the ability to perfo
 src/
 ├── index.ts                 # Entry point and server initialization
 ├── server.ts                # MCP server implementation
-├── client-wrapper.ts        # Gmail API client wrapper
+├── client-wrapper.ts        # Gmail API client wrapper with multi-account support
 ├── tool-handler.ts          # Tool registration and request routing
-├── prompt-handler.ts        # Prompt management
+├── prompt-handler.ts        # Prompt management and template system
 ├── version.ts               # Version information
 ├── utils.ts                 # Shared utilities for dates, emails, etc.
 ├── timezone-utils.ts        # Timezone handling and configuration
 └── tools/                   # Tool implementations by domain
     ├── email-read-tools.ts  # Tools for reading emails
-    ├── email-send-tools.ts  # Tools for sending emails
+    ├── email-send-tools.ts  # Tools for sending, replying and forwarding emails
     ├── email-search-tools.ts # Tools for searching and filtering emails
     ├── email-label-tools.ts # Tools for managing labels and message states
     └── timezone-tool.ts     # Tool for verifying timezone configuration
@@ -36,15 +36,15 @@ src/
 
 - **index.ts**: Entry point for the application, handles authentication and server initialization
 - **server.ts**: Implements the MCP server functionality, registers handlers for tools and prompts
-- **client-wrapper.ts**: Wraps Gmail API functionality, implements category support and message transformation
+- **client-wrapper.ts**: Wraps Gmail API functionality, implements category support, message transformation, and multi-account handling
 - **tool-handler.ts**: Routes tool requests to appropriate handlers and formats responses
 - **prompt-handler.ts**: Manages templates and examples for common Gmail operations
-- **utils.ts**: Provides utility functions for date formatting, email creation, and content extraction
+- **utils.ts**: Provides utility functions for date formatting, email creation, content extraction, and proper UTF-8 encoding
 - **timezone-utils.ts**: Handles timezone parsing, conversion, and formatting for consistent date handling
 - **tools/**: Contains domain-specific implementations for email operations
   - **email-read-tools.ts**: Tools for reading emails and extracting content
-  - **email-send-tools.ts**: Tools for composing and sending emails
-  - **email-search-tools.ts**: Tools for finding emails with various filters
+  - **email-send-tools.ts**: Tools for sending emails
+  - **email-search-tools.ts**: Tools for searching and filtering emails
   - **email-label-tools.ts**: Tools for managing labels and message states (read/unread, archive/unarchive)
   - **timezone-tool.ts**: Tool for verifying timezone configuration and comparing time formats
 
@@ -62,6 +62,8 @@ The server supports the following configuration:
 
 - **Send Email**: Send new emails with support for CC, BCC, and attachments
 - **Reply**: Reply to existing emails while maintaining thread context
+- **Reply All**: Reply to all recipients in a thread while filtering out your own addresses
+- **Forward**: Forward emails to other recipients with original headers and formatting
 - **Read Email**: Retrieve and display email content, headers, and attachments
 - **Search Emails**: Search emails using Gmail's query syntax with enhanced features
 
@@ -73,6 +75,9 @@ The server supports the following configuration:
 - **Unread Status**: Automatic handling of unread email filtering
 - **HTML Content**: Process and display both HTML and plain text email content
 - **Thread Context**: Maintain email threading for proper conversation context
+- **Multi-Account Support**: Automatic handling of multiple sending addresses and aliases
+- **Smart Reply Addressing**: Selection of correct sending address based on original recipient
+- **UTF-8 Encoding**: Proper encoding of international characters in subject and body content
 
 ### Label Management
 
@@ -185,12 +190,46 @@ Parameters:
 - `body`: Email body content (required)
 - `additionalRecipients`: Additional recipients to include in the reply
 - `excludeRecipients`: Recipients to exclude from the reply
+- `from`: Specific send-as email address to use as sender (optional)
 
 The tool automatically handles:
 - Including all original recipients (TO and CC)
 - Excluding your own email address to prevent self-replies
 - Setting proper email headers for threading
 - Using the correct FROM address based on the original recipient
+
+### Forward Email
+```
+forward_email
+```
+Forward an email to other recipients.
+
+Parameters:
+- `messageId`: ID of the message to forward (required)
+- `to`: List of recipients to forward the email to (required)
+- `additionalContent`: Additional content to add before the forwarded message
+- `cc`: List of CC recipients
+- `from`: Specific send-as email address to use as sender (optional)
+
+The tool automatically handles:
+- Formatting the forwarded message with proper headers
+- Adding "Fwd:" prefix to subject if not already present
+- Including original email headers (From, Date, Subject, To, Cc)
+- Maintaining thread context with original email
+- Excluding your own email addresses from recipients lists
+
+### List Send-As Accounts
+```
+list_send_as_accounts
+```
+List all accounts and email addresses that can be used for sending emails.
+
+Parameters: None
+
+Returns:
+- List of all send-as accounts with their properties
+- Default account information
+- Information about verification status and display names
 
 ### Get Recent Emails
 ```

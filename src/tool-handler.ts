@@ -1,6 +1,8 @@
 import { Tool, CallToolRequest, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { GmailClientWrapper } from "./client-wrapper.js";
-import { emailTools } from "./tools/email-tools.js";
+import { readEmailTool } from "./tools/email-read-tools.js";
+import { sendEmailTool } from "./tools/email-send-tools.js";
+import { searchEmailsTool, getRecentEmailsTool } from "./tools/email-search-tools.js";
 
 export interface ToolHandler {
   (client: GmailClientWrapper, params: Record<string, unknown>): Promise<unknown>;
@@ -10,7 +12,12 @@ export type ExtendedTool = Tool & {
   handler: ToolHandler;
 };
 
-export const tools = Object.values(emailTools) as ExtendedTool[];
+export const tools = [
+  readEmailTool,
+  sendEmailTool,
+  searchEmailsTool,
+  getRecentEmailsTool
+] as ExtendedTool[];
 
 export function createToolHandler(client: GmailClientWrapper) {
   return async (request: CallToolRequest): Promise<CallToolResult> => {

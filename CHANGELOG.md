@@ -77,3 +77,40 @@
 - Integration with Gmail API
 - Basic functionality for sending and reading emails
 - OAuth authentication with Gmail
+
+## v0.2.0 (2024-03-17)
+
+### Added
+- Support for results pagination in email listing functions:
+  - Added `pageToken` parameter to `get_recent_emails` and `search_emails` tools
+  - Implemented handling for `nextPageToken` in responses
+  - Added information about total estimated results
+  - Limited to maximum 500 results per page as per Gmail API restrictions
+
+- Gmail Category System Support:
+  - Added `category` parameter to `get_recent_emails` and `search_emails` tools
+  - Implemented filtering by Gmail categories: Primary, Social, Promotions, Updates, Forums
+  - Improved search queries for category filtering
+  - Fixed implementation to use proper Gmail API syntax for categories
+
+- Time Filter Enhancements:
+  - Added `timeFilter` parameter with support for "today", "yesterday", and "last24h"
+  - Improved date query construction for better search results
+  - Enhanced response messages to include clear time descriptions with actual dates
+
+- Code Organization and Modularity:
+  - Refactored code to use a modular directory structure
+  - Created specialized tool modules for email operations: reading, sending, searching
+  - Improved server initialization and configuration
+  - Separated utility functions into dedicated modules
+
+### Fixed
+- Corrected category search handling for Gmail's Primary category
+- Fixed issues with "unread" search queries by automatically converting `is:unread` to `label:unread`
+- Enhanced error handling in Gmail API interactions
+
+### Improved
+- Enhanced response formatting with more context about search parameters
+- Better query construction for complex search operations
+- Improved documentation in code comments
+- Updated tool descriptions with more accurate usage information

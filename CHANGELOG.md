@@ -38,9 +38,13 @@
 - Added detailed prompt templates for label operations
 - Updated documentation with examples for label management tools
 
-## [0.5.0] - 2024-03-17
+## [0.5.0] - 2024-03-18
 
 ### Added
+- Timezone configuration support for email timestamps and date queries
+- Ability to configure timezone through environment variable TIME_ZONE or config.json file
+- Automatic adjustment of all date/time display and queries to use the configured timezone
+- Validation of timezone format with fallback to UTC if invalid
 - Automatic pagination with new `autoFetchAll` parameter for email search tools:
   - Added capability to automatically retrieve up to 100 emails in a single request
   - Implemented progressive loading logic with configurable limits

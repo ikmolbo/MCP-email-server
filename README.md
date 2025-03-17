@@ -70,6 +70,26 @@ src/
 - **Message States**: Mark messages as read/unread, archive/unarchive messages
 - **Trash Management**: Move messages to trash
 
+## Configuration
+
+The server can be configured through environment variables or a configuration file.
+
+### Environment Variables
+- `GMAIL_OAUTH_PATH` - Path to the OAuth credentials file (default: `~/.email-mcp/gcp-oauth.keys.json`)
+- `GMAIL_CREDENTIALS_PATH` - Path to the credentials file (default: `~/.email-mcp/credentials.json`)
+- `TIME_ZONE` - The timezone to use for timestamps and date queries (default: `UTC`)
+
+### Configuration File
+You can also create a configuration file at `~/.email-mcp/config.json`:
+
+```json
+{
+  "timeZone": "Europe/Bucharest" 
+}
+```
+
+The server supports [IANA timezone names](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) (e.g., `Europe/Bucharest`, `America/New_York`) as well as GMT offsets (e.g., `GMT+2`).
+
 ## Installation
 
 ### Prerequisites

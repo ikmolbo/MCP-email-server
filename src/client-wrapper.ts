@@ -113,6 +113,8 @@ export class GmailClientWrapper {
         });
         
         const messages = response.data.messages || [];
+        
+        // Folosim getMessage care are implementată ajustarea fusului orar
         const messageDetails = await Promise.all(
           messages.map(msg => this.getMessage(msg.id!))
         );

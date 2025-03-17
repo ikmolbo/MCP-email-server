@@ -11,12 +11,29 @@ export interface EmailOptions {
   from?: string;
 }
 
+/**
+ * Codifică subiectul e-mailului conform RFC 2047 pentru a gestiona corect caracterele non-ASCII
+ * @param subject Subiectul original al e-mailului
+ * @returns Subiectul codificat pentru a fi compatibil cu headerele e-mailului
+ */
+export function encodeEmailSubject(subject: string): string {
+  // Verifică dacă subiectul conține caractere non-ASCII
+  if (!/^[\x00-\x7F]*$/.test(subject)) {
+    // Codifică subiectul ca Base64 conform RFC 2047
+    const encodedSubject = Buffer.from(subject).toString('base64');
+    return `=?UTF-8?B?${encodedSubject}?=`;
+  }
+  // Returnează subiectul neschimbat dacă conține doar ASCII
+  return subject;
+}
+
 export function createEmailMessage(args: EmailOptions) {
   const fromHeader = args.from ? `From: ${args.from}\r\n` : '';
   const toHeader = `To: ${args.to.join(', ')}\r\n`;
   const ccHeader = args.cc && args.cc.length > 0 ? `Cc: ${args.cc.join(', ')}\r\n` : '';
   const bccHeader = args.bcc && args.bcc.length > 0 ? `Bcc: ${args.bcc.join(', ')}\r\n` : '';
-  const subjectHeader = `Subject: ${args.subject}\r\n`;
+  const encodedSubject = encodeEmailSubject(args.subject);
+  const subjectHeader = `Subject: ${encodedSubject}\r\n`;
   const contentType = 'Content-Type: text/plain; charset=utf-8\r\n';
   const inReplyToHeader = args.inReplyTo ? `In-Reply-To: <${args.inReplyTo}>\r\n` : '';
   const referencesHeader = args.references && args.references.length > 0 

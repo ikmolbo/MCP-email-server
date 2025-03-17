@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.1] - 2024-03-17
+
+### Fixed
+- Fixed character encoding issue in email subject lines:
+  - Implemented RFC 2047 compliant encoding for non-ASCII characters in subject headers
+  - Added proper UTF-8 handling for international characters (like é, ü, etc.)
+  - Fixed issue where "é" in "Montréal" was displayed as "ÃƒÂ©"
+  - Added support for emoji and other Unicode characters in email subjects
+  - Implemented automatic detection of non-ASCII characters requiring encoding
+
 ## [0.6.0] - 2024-03-17
 
 ### Added

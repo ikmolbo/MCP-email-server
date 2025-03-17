@@ -1,6 +1,7 @@
 import { gmail_v1, google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import { GaxiosResponse } from 'gaxios';
+import { encodeEmailSubject } from './utils.js';
 
 export interface PaginationOptions {
   pageSize?: number;
@@ -299,9 +300,11 @@ export class GmailClientWrapper {
     inReplyTo?: string;
     references?: string[];
   }): Promise<string> {
+    const encodedSubject = encodeEmailSubject(options.subject);
+    
     const headers = [
       `To: ${options.to.join(', ')}`,
-      `Subject: ${options.subject}`,
+      `Subject: ${encodedSubject}`,
       options.from ? `From: ${options.from}` : '',
       options.inReplyTo ? `In-Reply-To: ${options.inReplyTo}` : '',
       options.references?.length ? `References: ${options.references.join(' ')}` : '',

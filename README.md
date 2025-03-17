@@ -26,7 +26,8 @@ src/
 └── tools/                   # Tool implementations by domain
     ├── email-read-tools.ts  # Tools for reading emails
     ├── email-send-tools.ts  # Tools for sending emails
-    └── email-search-tools.ts # Tools for searching and filtering emails
+    ├── email-search-tools.ts # Tools for searching and filtering emails
+    └── email-label-tools.ts # Tools for managing labels and message states
 ```
 
 ### Core Components
@@ -38,6 +39,10 @@ src/
 - **prompt-handler.ts**: Manages templates and examples for common Gmail operations
 - **utils.ts**: Provides utility functions for date formatting, email creation, and content extraction
 - **tools/**: Contains domain-specific implementations for email operations
+  - **email-read-tools.ts**: Tools for reading emails and extracting content
+  - **email-send-tools.ts**: Tools for composing and sending emails
+  - **email-search-tools.ts**: Tools for finding emails with various filters
+  - **email-label-tools.ts**: Tools for managing labels and message states (read/unread, archive/unarchive)
 
 ## Features
 
@@ -56,6 +61,14 @@ src/
 - **Unread Status**: Automatic handling of unread email filtering
 - **HTML Content**: Process and display both HTML and plain text email content
 - **Thread Context**: Maintain email threading for proper conversation context
+
+### Label Management
+
+- **Custom Labels**: Create, update, and delete custom labels
+- **Label Visibility**: Control visibility of labels in message list and label list
+- **Label Colors**: Configure text and background colors for visual organization
+- **Message States**: Mark messages as read/unread, archive/unarchive messages
+- **Trash Management**: Move messages to trash
 
 ## Installation
 
@@ -149,11 +162,12 @@ Get recent emails with support for time filters, categories, and read status.
 
 Parameters:
 - `hours`: Number of hours to look back
-- `maxResults`: Maximum number of results to return (default: 10)
+- `maxResults`: Maximum number of results to return (default: 25)
 - `query`: Additional Gmail search query
 - `pageToken`: Token for the next page of results
 - `category`: Filter by Gmail category (primary, social, promotions, updates, forums)
 - `timeFilter`: Predefined time filter (today, yesterday, last24h)
+- `autoFetchAll`: Automatically fetch all results (up to 100) without requiring pagination
 
 ### Read Email
 ```
@@ -172,10 +186,124 @@ Search for emails using Gmail query syntax with support for categories and time 
 
 Parameters:
 - `query`: Gmail search query (required)
-- `maxResults`: Maximum number of results to return (default: 10)
+- `maxResults`: Maximum number of results to return (default: 25)
 - `pageToken`: Token for the next page of results
 - `category`: Filter by Gmail category (primary, social, promotions, updates, forums)
 - `timeFilter`: Predefined time filter (today, yesterday, last24h)
+- `autoFetchAll`: Automatically fetch all results (up to 100) without requiring pagination
+
+### Label Management Tools
+
+#### List Labels
+```
+list_labels
+```
+List all labels in the user's mailbox.
+
+Parameters: None
+
+#### Get Label
+```
+get_label
+```
+Get details about a specific label.
+
+Parameters:
+- `labelId`: ID of the label to retrieve (required)
+
+#### Create Label
+```
+create_label
+```
+Create a new label in the user's mailbox.
+
+Parameters:
+- `name`: Name of the label to create (required)
+- `messageListVisibility`: Controls the label's visibility in the message list (`show` or `hide`)
+- `labelListVisibility`: Controls the label's visibility in the label list (`labelShow`, `labelShowIfUnread`, or `labelHide`)
+- `textColor`: Text color in hex format (e.g., #000000)
+- `backgroundColor`: Background color in hex format (e.g., #ffffff)
+
+#### Update Label
+```
+update_label
+```
+Update an existing label.
+
+Parameters:
+- `labelId`: ID of the label to update (required)
+- `name`: New name for the label
+- `messageListVisibility`: Controls the label's visibility in the message list (`show` or `hide`)
+- `labelListVisibility`: Controls the label's visibility in the label list (`labelShow`, `labelShowIfUnread`, or `labelHide`)
+- `textColor`: Text color in hex format (e.g., #000000)
+- `backgroundColor`: Background color in hex format (e.g., #ffffff)
+
+#### Delete Label
+```
+delete_label
+```
+Delete a label from the user's mailbox.
+
+Parameters:
+- `labelId`: ID of the label to delete (required)
+
+#### Modify Labels
+```
+modify_labels
+```
+Add or remove labels from a message.
+
+Parameters:
+- `messageId`: ID of the message to modify (required)
+- `addLabelIds`: Array of label IDs to add to the message
+- `removeLabelIds`: Array of label IDs to remove from the message
+
+### Message Management Tools
+
+#### Mark as Read
+```
+mark_as_read
+```
+Mark a message as read.
+
+Parameters:
+- `messageId`: ID of the message to mark as read (required)
+
+#### Mark as Unread
+```
+mark_as_unread
+```
+Mark a message as unread.
+
+Parameters:
+- `messageId`: ID of the message to mark as unread (required)
+
+#### Archive Message
+```
+archive_message
+```
+Archive a message (remove from inbox).
+
+Parameters:
+- `messageId`: ID of the message to archive (required)
+
+#### Unarchive Message
+```
+unarchive_message
+```
+Move a message back to inbox.
+
+Parameters:
+- `messageId`: ID of the message to move to inbox (required)
+
+#### Trash Message
+```
+trash_message
+```
+Move a message to trash.
+
+Parameters:
+- `messageId`: ID of the message to move to trash (required)
 
 ## Example Prompts
 
@@ -184,6 +312,11 @@ Parameters:
 - "Search for emails from jane@example.com"
 - "Find unread emails in my Primary category from yesterday"
 - "Show me promotional emails containing 'discount' received today"
+- "Create a new label called 'Project X' with blue background"
+- "Show all my Gmail labels"
+- "Mark this email as unread"
+- "Archive all emails from this newsletter"
+- "Move this email to my 'Important' label"
 
 ## Contributing
 

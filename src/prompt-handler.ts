@@ -280,6 +280,125 @@ The search will return:
     `,
     parameters: ["query", "category", "maxResults", "pageToken", "timeFilter", "autoFetchAll"],
     required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInInbox", "received"]
+  },
+
+  label_management: {
+    name: "label_management",
+    description: "Manage Gmail labels including listing, creating, updating, and deleting labels",
+    template: `
+To manage Gmail labels, you can use the following operations:
+
+1. LIST LABELS
+   - Lists all labels in your mailbox
+   - Shows system labels (like INBOX, SENT, TRASH) and your custom labels
+   - Provides label IDs needed for other operations
+   - No parameters needed
+
+2. GET LABEL DETAILS
+   - Shows full details about a specific label including:
+     * Name, ID, and type (system or user)
+     * Visibility settings
+     * Color information
+     * Message and thread counts
+   - Required parameter: labelId
+
+3. CREATE LABEL
+   - Creates a new custom label in your mailbox
+   - Required parameter: name
+   - Optional parameters:
+     * messageListVisibility: "show" or "hide" (controls visibility in message list)
+     * labelListVisibility: "labelShow", "labelShowIfUnread", or "labelHide" (controls visibility in label list)
+     * textColor: hex color code (e.g., "#000000")
+     * backgroundColor: hex color code (e.g., "#ffffff")
+
+4. UPDATE LABEL
+   - Modifies an existing label's properties
+   - Required parameter: labelId
+   - Optional parameters (only specify what you want to change):
+     * name: new name for the label
+     * messageListVisibility: "show" or "hide"
+     * labelListVisibility: "labelShow", "labelShowIfUnread", or "labelHide"
+     * textColor: hex color code
+     * backgroundColor: hex color code
+
+5. DELETE LABEL
+   - Permanently removes a label from your mailbox
+   - The label will also be removed from any messages it was applied to
+   - Required parameter: labelId
+   - IMPORTANT: Cannot delete system labels (INBOX, SENT, etc.)
+
+6. MODIFY MESSAGE LABELS
+   - Add and/or remove labels from a specific message
+   - Required parameter: messageId
+   - Optional parameters (at least one required):
+     * addLabelIds: array of label IDs to add
+     * removeLabelIds: array of label IDs to remove
+
+COMMON OPERATIONS:
+
+1. Mark message as read:
+   - Removes the UNREAD label
+   - Required parameter: messageId
+
+2. Mark message as unread:
+   - Adds the UNREAD label
+   - Required parameter: messageId
+
+3. Archive message:
+   - Removes the INBOX label
+   - Required parameter: messageId
+
+4. Move message to inbox:
+   - Adds the INBOX label
+   - Required parameter: messageId
+
+5. Move message to trash:
+   - Adds the TRASH label and removes from INBOX
+   - Required parameter: messageId
+
+IMPORTANT NOTES:
+- System labels have uppercase names (INBOX, UNREAD, TRASH, etc.)
+- User labels generally use regular casing
+- You cannot modify system label properties
+- Gmail has a limit of 10,000 labels per mailbox
+    `,
+    parameters: [],
+    required_output: ["operation", "parameters"]
+  },
+  
+  modify_labels: {
+    name: "modify_labels",
+    description: "Add or remove labels from a message",
+    template: `
+To add or remove labels from a message, please provide:
+
+1. The message ID (required)
+2. Labels to add (optional)
+3. Labels to remove (optional)
+
+You must specify at least one label to add or remove.
+
+SYSTEM LABELS:
+- INBOX - Message appears in inbox
+- UNREAD - Message is marked as unread
+- STARRED - Message is starred
+- IMPORTANT - Message is marked as important
+- SENT - Message was sent by the user
+- DRAFT - Message is a draft
+- TRASH - Message is in trash
+- SPAM - Message is in spam
+
+COMMON OPERATIONS:
+- To mark as read: remove UNREAD label
+- To mark as unread: add UNREAD label
+- To archive: remove INBOX label
+- To move to inbox: add INBOX label
+- To trash: add TRASH label and remove INBOX label
+
+Label IDs for custom labels can be found using the list_labels tool.
+    `,
+    parameters: ["messageId", "addLabelIds", "removeLabelIds"],
+    required_output: ["messageId", "labels"]
   }
 };
 

@@ -3,6 +3,19 @@ import { GmailClientWrapper } from "./client-wrapper.js";
 import { readEmailTool } from "./tools/email-read-tools.js";
 import { sendEmailTool } from "./tools/email-send-tools.js";
 import { searchEmailsTool, getRecentEmailsTool } from "./tools/email-search-tools.js";
+import { 
+  listLabelsTool, 
+  getLabelTool, 
+  createLabelTool, 
+  updateLabelTool, 
+  deleteLabelTool, 
+  modifyLabelsTool,
+  markAsReadTool,
+  markAsUnreadTool, 
+  archiveMessageTool, 
+  unarchiveMessageTool,
+  trashMessageTool
+} from "./tools/email-label-tools.js";
 
 export interface ToolHandler {
   (client: GmailClientWrapper, params: Record<string, unknown>): Promise<unknown>;
@@ -16,7 +29,22 @@ export const tools = [
   readEmailTool,
   sendEmailTool,
   searchEmailsTool,
-  getRecentEmailsTool
+  getRecentEmailsTool,
+  
+  // Label management tools
+  listLabelsTool,
+  getLabelTool,
+  createLabelTool,
+  updateLabelTool,
+  deleteLabelTool,
+  modifyLabelsTool,
+  
+  // Email state management tools
+  markAsReadTool,
+  markAsUnreadTool,
+  archiveMessageTool,
+  unarchiveMessageTool,
+  trashMessageTool
 ] as ExtendedTool[];
 
 export function createToolHandler(client: GmailClientWrapper) {

@@ -312,4 +312,123 @@ export class GmailClientWrapper {
     const email = `${headers}\r\n\r\n${options.content}`;
     return Buffer.from(email).toString('base64url');
   }
+  
+  // Label management methods
+  
+  async listLabels(): Promise<gmail_v1.Schema$Label[]> {
+    try {
+      const response = await this.gmail.users.labels.list({
+        userId: this.userId
+      });
+      return response.data.labels || [];
+    } catch (error) {
+      throw new Error(`Failed to list labels: ${error}`);
+    }
+  }
+  
+  async getLabel(labelId: string): Promise<gmail_v1.Schema$Label> {
+    try {
+      const response = await this.gmail.users.labels.get({
+        userId: this.userId,
+        id: labelId
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(`Failed to get label ${labelId}: ${error}`);
+    }
+  }
+  
+  async createLabel(name: string, options?: { 
+    messageListVisibility?: 'show' | 'hide',
+    labelListVisibility?: 'labelShow' | 'labelShowIfUnread' | 'labelHide',
+    color?: { 
+      textColor?: string, 
+      backgroundColor?: string 
+    }
+  }): Promise<gmail_v1.Schema$Label> {
+    try {
+      const response = await this.gmail.users.labels.create({
+        userId: this.userId,
+        requestBody: {
+          name,
+          messageListVisibility: options?.messageListVisibility,
+          labelListVisibility: options?.labelListVisibility,
+          color: options?.color
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(`Failed to create label "${name}": ${error}`);
+    }
+  }
+  
+  async updateLabel(labelId: string, updates: {
+    name?: string,
+    messageListVisibility?: 'show' | 'hide',
+    labelListVisibility?: 'labelShow' | 'labelShowIfUnread' | 'labelHide',
+    color?: { 
+      textColor?: string, 
+      backgroundColor?: string 
+    }
+  }): Promise<gmail_v1.Schema$Label> {
+    try {
+      const response = await this.gmail.users.labels.update({
+        userId: this.userId,
+        id: labelId,
+        requestBody: updates
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(`Failed to update label ${labelId}: ${error}`);
+    }
+  }
+  
+  async deleteLabel(labelId: string): Promise<void> {
+    try {
+      await this.gmail.users.labels.delete({
+        userId: this.userId,
+        id: labelId
+      });
+    } catch (error) {
+      throw new Error(`Failed to delete label ${labelId}: ${error}`);
+    }
+  }
+  
+  async modifyMessageLabels(messageId: string, addLabelIds?: string[], removeLabelIds?: string[]): Promise<gmail_v1.Schema$Message> {
+    try {
+      const response = await this.gmail.users.messages.modify({
+        userId: this.userId,
+        id: messageId,
+        requestBody: {
+          addLabelIds,
+          removeLabelIds
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(`Failed to modify labels for message ${messageId}: ${error}`);
+    }
+  }
+  
+  // Convenience methods for common label operations
+  
+  async markAsRead(messageId: string): Promise<gmail_v1.Schema$Message> {
+    return this.modifyMessageLabels(messageId, [], ['UNREAD']);
+  }
+  
+  async markAsUnread(messageId: string): Promise<gmail_v1.Schema$Message> {
+    return this.modifyMessageLabels(messageId, ['UNREAD'], []);
+  }
+  
+  async archiveMessage(messageId: string): Promise<gmail_v1.Schema$Message> {
+    return this.modifyMessageLabels(messageId, [], ['INBOX']);
+  }
+  
+  async unarchiveMessage(messageId: string): Promise<gmail_v1.Schema$Message> {
+    return this.modifyMessageLabels(messageId, ['INBOX'], []);
+  }
+  
+  async trashMessage(messageId: string): Promise<gmail_v1.Schema$Message> {
+    return this.modifyMessageLabels(messageId, ['TRASH'], ['INBOX']);
+  }
 } 

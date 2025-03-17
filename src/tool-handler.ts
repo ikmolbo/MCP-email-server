@@ -16,6 +16,7 @@ import {
   unarchiveMessageTool,
   trashMessageTool
 } from "./tools/email-label-tools.js";
+import { getTimezoneInfoTool } from "./tools/timezone-tool.js";
 
 export interface ToolHandler {
   (client: GmailClientWrapper, params: Record<string, unknown>): Promise<unknown>;
@@ -44,7 +45,10 @@ export const tools = [
   markAsUnreadTool,
   archiveMessageTool,
   unarchiveMessageTool,
-  trashMessageTool
+  trashMessageTool,
+  
+  // Timezone information tool
+  getTimezoneInfoTool
 ] as ExtendedTool[];
 
 export function createToolHandler(client: GmailClientWrapper) {

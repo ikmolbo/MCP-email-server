@@ -81,6 +81,7 @@ The server supports the following configuration:
 ### Time Zone Support
 
 - **Display and Query Emails**: Display and query emails in the user's local time zone
+- **Time Zone Verification**: Check the configured time zone and see current time adjustments
 
 ## Installation
 

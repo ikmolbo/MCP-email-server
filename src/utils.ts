@@ -198,5 +198,12 @@ export function ensureCorrectUnreadSyntax(query: string): string {
 // Helper function to format timestamp in a standardized way
 export function formatTimestamp(timestamp?: string): string {
   if (!timestamp) return 'Received: Unknown';
-  return `Received: ${formatTimestampWithOffset(timestamp)}`;
+  
+  try {
+    // Folosim direct timestamp-ul care a fost deja formatat cu fusul orar
+    return `Received: ${timestamp}`;
+  } catch (e) {
+    // If parsing fails, return the raw timestamp
+    return `Received: ${timestamp}`;
+  }
 } 

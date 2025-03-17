@@ -399,6 +399,29 @@ Label IDs for custom labels can be found using the list_labels tool.
     `,
     parameters: ["messageId", "addLabelIds", "removeLabelIds"],
     required_output: ["messageId", "labels"]
+  },
+
+  timezone_info: {
+    name: "timezone_info",
+    description: "Verifică configurația de fus orar a sistemului",
+    template: `
+Pentru a verifica configurația de fus orar a sistemului, poți folosi tool-ul get_timezone_info.
+
+Acest tool va returna următoarele informații:
+1. Fusul orar configurat (din variabila TIME_ZONE)
+2. Offsetul calculat în ore
+3. Data și ora curentă ajustată la fusul orar
+4. Data și ora în UTC pentru comparație
+
+Aceste informații te vor ajuta să înțelegi:
+- Ce fus orar este configurat în sistem
+- Cum sunt ajustate timestamp-urile emailurilor la acest fus orar
+- Diferența dintre ora UTC și ora locală
+
+Pentru a schimba fusul orar, configurația TIME_ZONE trebuie modificată la nivel de sistem.
+    `,
+    parameters: [],
+    required_output: ["timeZoneConfig", "offsetHours", "currentTimeLocal", "currentTimeUTC"]
   }
 };
 

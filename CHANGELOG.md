@@ -181,6 +181,26 @@
 - Improved documentation in code comments
 - Updated tool descriptions with more accurate usage information
 
+## [0.7.0] - 2024-04-05
+
+### Added
+- Timezone support for all date and time operations:
+  - Added configuration variable TIME_ZONE in format like 'GMT+2'
+  - Implemented timezone adjustment for all timestamp displays
+  - Added proper date calculation adjustments for search filters
+  - All email timestamps now display in the configured timezone
+  - Configurable through environment variables or JSON configuration
+- New timezone verification tool:
+  - Added `get_timezone_info` tool to check current timezone configuration
+  - Display configured timezone offset and compare local vs UTC times
+  - Provides runtime verification of timezone settings
+  - Assists in debugging timezone-related display issues
+
+### Fixed
+- Fixed timestamp display in search results to respect timezone settings
+- Corrected date calculations in time filters (today, yesterday) to use configured timezone
+- Ensured consistent timestamp formatting across all email operations
+
 ## [Unreleased]
 
 ### Added

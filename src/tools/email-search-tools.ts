@@ -9,6 +9,7 @@ import {
   getDateQuery,
   ensureCorrectUnreadSyntax
 } from "../utils.js";
+import { timeZoneOffset, formatTimestampWithOffset } from "../timezone-utils.js";
 
 // Schema definitions
 const GetRecentEmailsSchema = z.object({
@@ -370,11 +371,7 @@ export const getRecentEmailsTool: Tool = {
 
 // Helper to format timestamp in a standardized way
 function formatTimestamp(timestamp: string): string {
-  try {
-    const date = new Date(timestamp);
-    return `Received: ${date.toISOString().replace('T', ' ').substring(0, 19)}`;
-  } catch (e) {
-    // If parsing fails, return the raw timestamp
-    return `Received: ${timestamp}`;
-  }
+  if (!timestamp) return 'Received: Unknown';
+  // Folosim direct timestamp-ul care a fost deja formatat cu fusul orar
+  return `Received: ${timestamp}`;
 } 

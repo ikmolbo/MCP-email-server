@@ -23,11 +23,13 @@ src/
 ├── prompt-handler.ts        # Prompt management
 ├── version.ts               # Version information
 ├── utils.ts                 # Shared utilities for dates, emails, etc.
+├── timezone-utils.ts        # Timezone handling and configuration
 └── tools/                   # Tool implementations by domain
     ├── email-read-tools.ts  # Tools for reading emails
     ├── email-send-tools.ts  # Tools for sending emails
     ├── email-search-tools.ts # Tools for searching and filtering emails
-    └── email-label-tools.ts # Tools for managing labels and message states
+    ├── email-label-tools.ts # Tools for managing labels and message states
+    └── timezone-tool.ts     # Tool for verifying timezone configuration
 ```
 
 ### Core Components
@@ -38,11 +40,13 @@ src/
 - **tool-handler.ts**: Routes tool requests to appropriate handlers and formats responses
 - **prompt-handler.ts**: Manages templates and examples for common Gmail operations
 - **utils.ts**: Provides utility functions for date formatting, email creation, and content extraction
+- **timezone-utils.ts**: Handles timezone parsing, conversion, and formatting for consistent date handling
 - **tools/**: Contains domain-specific implementations for email operations
   - **email-read-tools.ts**: Tools for reading emails and extracting content
   - **email-send-tools.ts**: Tools for composing and sending emails
   - **email-search-tools.ts**: Tools for finding emails with various filters
   - **email-label-tools.ts**: Tools for managing labels and message states (read/unread, archive/unarchive)
+  - **timezone-tool.ts**: Tool for verifying timezone configuration and comparing time formats
 
 ## Configuration
 
@@ -81,6 +85,10 @@ The server supports the following configuration:
 ### Time Zone Support
 
 - **Display and Query Emails**: Display and query emails in the user's local time zone
+- **Time Zone Verification**: Check the configured time zone and see current time adjustments
+- **Configurable Offset**: Support for custom GMT offsets (GMT+2, GMT-5, etc.)
+- **Consistent Formatting**: All timestamps displayed with the configured timezone
+- **Date Calculations**: Search filters like "today" and "yesterday" properly adjusted for timezone
 
 ## Installation
 

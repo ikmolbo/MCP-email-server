@@ -158,8 +158,18 @@ IMPORTANT DISTINCTIONS:
 
 You can also specify:
 - category (optional): "primary", "social", "promotions", "updates", "forums"
-- maxResults (optional): maximum number of results to return (default: 10)
+- maxResults (optional): maximum number of results to return (default: 25)
 - query (optional): additional Gmail search criteria
+- autoFetchAll (optional): set to true to automatically fetch all results (up to 100) without manual pagination
+
+CATEGORIES VS LABELS:
+- CATEGORIES are Gmail's inbox sections (primary, social, promotions, updates, forums)
+  * To filter by category: use the "category" parameter
+  * Example: category: "forums" (NOT "label:forums" or "category:forums" in query)
+  
+- LABELS are custom tags in Gmail (like "unread", "important", "work", etc.)
+  * To filter by label: include "label:X" in the query parameter
+  * Example: query: "label:unread label:important" (NOT category: "unread")
 
 Common search patterns:
 1. Today's unread emails from Primary:
@@ -174,15 +184,25 @@ Common search patterns:
 4. Today's important notifications:
    timeFilter: "today", category: "updates", query: "label:important"
 
+5. All unread forum emails (up to 100) from March 16, 2025:
+   query: "after:2025/03/16 before:2025/03/17 label:unread", category: "forums", autoFetchAll: true
+
+PAGINATION:
+- By default, only 25 results are returned even if more matching emails exist
+- If there are more results, a nextPageToken will be provided
+- To view all results at once (up to 100), use autoFetchAll: true
+- To get specific pages, use the pageToken parameter with the token from previous results
+
 The search will return:
 - Email subject, sender, and recipients
 - Email category and read state
 - Whether the email is in inbox
+- Timestamp when email was received
 - Preview of content
 - Next page token if more results are available
     `,
-    parameters: ["hours", "category", "maxResults", "query", "pageToken", "timeFilter"],
-    required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInInbox"]
+    parameters: ["hours", "category", "maxResults", "query", "pageToken", "timeFilter", "autoFetchAll"],
+    required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInInbox", "received"]
   },
 
   search_emails: {
@@ -198,12 +218,22 @@ To search for emails, please provide:
 
 You can also specify:
 - category (optional): "primary", "social", "promotions", "updates", "forums"
-- maxResults (optional): maximum number of results to return (default: 10)
+- maxResults (optional): maximum number of results to return (default: 25)
+- autoFetchAll (optional): set to true to automatically fetch all results (up to 100) without manual pagination
 
 IMPORTANT DISTINCTIONS:
 - For "today" (a calendar date), use timeFilter:"today" not date in query
 - For "yesterday", use timeFilter:"yesterday"
 - For unread emails, ALWAYS use "label:unread" not "is:unread"
+
+CATEGORIES VS LABELS:
+- CATEGORIES are Gmail's inbox sections (primary, social, promotions, updates, forums)
+  * To filter by category: use the "category" parameter
+  * Example: category: "forums" (NOT "label:forums" or "category:forums" in query)
+  
+- LABELS are custom tags in Gmail (like "unread", "important", "work", etc.)
+  * To filter by label: include "label:X" in the query parameter
+  * Example: query: "label:unread label:important" (NOT category: "unread")
 
 Common search patterns:
 1. Today's unread emails in Primary:
@@ -221,6 +251,15 @@ Common search patterns:
 5. Emails needing follow-up received yesterday:
    query: "label:unread -has:muted -in:sent", timeFilter: "yesterday"
 
+6. All forum emails (up to 100) from March 16, 2025:
+   query: "after:2025/03/16 before:2025/03/17", category: "forums", autoFetchAll: true
+
+PAGINATION:
+- By default, only 25 results are returned even if more matching emails exist
+- If there are more results, a nextPageToken will be provided
+- To view all results at once (up to 100), use autoFetchAll: true
+- To get specific pages, use the pageToken parameter with the token from previous results
+
 Search operators to remember:
 - "label:unread" for unread emails (NOT "is:unread")
 - "after:YYYY/MM/DD" for emails after specific date
@@ -235,11 +274,12 @@ The search will return:
 - Email subject, sender, and recipients
 - Email category and read state
 - Whether the email is in inbox
+- Timestamp when email was received
 - Preview of content
 - Next page token if more results are available
     `,
-    parameters: ["query", "category", "maxResults", "pageToken", "timeFilter"],
-    required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInInbox"]
+    parameters: ["query", "category", "maxResults", "pageToken", "timeFilter", "autoFetchAll"],
+    required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInInbox", "received"]
   }
 };
 

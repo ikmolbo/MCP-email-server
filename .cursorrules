@@ -1,0 +1,106 @@
+# MCP Server Architecture Guide
+
+IMPORTANT: when you build a tool, be sure to add prompt templates for the tool, with examples for relevant use cases.
+
+An MCP server is a specialized service that enables AI models (like Claude) to interact with external systems and APIs in a standardized way. It follows the Model Context Protocol specification to:
+
+1. Expose functionality through tools
+2. Provide prompts for complex operations
+3. Manage resources and their states
+4. Handle standardized communication with AI models
+
+## Core Architecture Components
+
+### 1. Project Structure
+
+```
+src/
+├── index.ts                 # Entry point and server setup
+├── server.ts               # MCP server implementation
+├── client-wrapper.ts       # API client wrapper
+├── tool-handler.ts         # Tool registration and routing
+├── prompt-handler.ts       # Prompt management
+├── version.ts              # Version management
+├── tools/                  # Tool implementations by domain
+│   ├── core-tools.ts
+│   └── domain-specific-tools.ts
+└── utils/                  # Shared utilities
+    ├── validation.ts
+    ├── error-utils.ts
+    ├── pagination.ts
+    └── field-utils.ts
+```
+
+### 2. Core Components Description
+
+#### a. Entry Point (index.ts)
+- Server initialization
+- Environment configuration
+- Transport setup (typically stdio)
+- Error handling
+- Request handler registration
+
+
+#### b. Client Wrapper (client-wrapper.ts)
+The client wrapper should:
+- Implement all API endpoints as typed methods
+- Handle rate limiting and retries
+- Manage authentication and token refresh
+- Transform API responses into standardized formats
+- Implement caching where appropriate
+- Handle API-specific error cases
+
+
+
+#### c. Tool Handler (tool-handler.ts)
+The tool handler should:
+- Register all available tools with their schemas
+- Validate incoming parameters against schemas
+- Route requests to appropriate tool implementations
+- Handle tool-specific errors
+- Transform tool results into MCP response format
+- Manage tool dependencies and initialization
+
+
+
+#### d. Tools Directory Organization
+Tools should be organized by domain/resource type:
+- `core-tools.ts`: Basic operations (list, get, create)
+- `resource-specific-tools.ts`: Resource-specific operations
+- `batch-tools.ts`: Bulk operations
+- `search-tools.ts`: Search and query operations
+- `relationship-tools.ts`: Managing relationships between resources
+
+Each tool file should:
+- Export tool definitions with schemas
+- Implement tool handlers
+- Define tool-specific types
+- Handle tool-specific validation
+- Document tool behavior and examples
+
+#### e. Utils Directory Organization
+Utils should be organized by functionality:
+- `validation.ts`: Parameter and schema validation
+- `error-utils.ts`: Error handling and transformation
+- `pagination.ts`: Pagination and result limiting
+- `field-utils.ts`: Field mapping and transformation
+- `array-utils.ts`: Array operations and normalization
+- `cache-utils.ts`: Caching utilities
+- `rate-limit.ts`: Rate limiting utilities
+
+#### f. Prompt Handler (prompt-handler.ts)
+The prompt handler should:
+- Define available prompts
+- Manage prompt templates
+- Handle prompt parameters
+- Format prompt responses
+- Cache commonly used prompts
+
+
+## Important - Always follow these guidelines:
+- Keep tools focused and well-documented
+- Implement comprehensive error handling
+- Validate all inputs
+- Provide meaningful feedback
+- Test thoroughly
+- Document setup and usage 

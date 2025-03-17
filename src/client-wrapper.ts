@@ -9,6 +9,8 @@ export interface PaginationOptions {
   includeSpamTrash?: boolean;
   query?: string;
   category?: 'primary' | 'social' | 'promotions' | 'updates' | 'forums';
+  autoFetchAll?: boolean;
+  maxAutoFetchResults?: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -29,6 +31,7 @@ export interface EmailData {
   isUnread: boolean;
   category?: 'primary' | 'social' | 'promotions' | 'updates' | 'forums';
   isInInbox: boolean;
+  timestamp?: string;
   attachments?: Array<{
     filename: string;
     mimeType: string;
@@ -87,23 +90,52 @@ export class GmailClientWrapper {
 
       console.error('Final query:', query); // Debug log
 
-      const response = await this.gmail.users.messages.list({
-        userId: this.userId,
-        maxResults: options.pageSize || 100,
-        pageToken: options.pageToken,
-        includeSpamTrash: options.includeSpamTrash,
-        q: query
-      });
-
-      const messages = response.data.messages || [];
-      const messageDetails = await Promise.all(
-        messages.map(msg => this.getMessage(msg.id!))
-      );
-
+      // Inițializăm răspunsul final pentru cazul paginării automate
+      let allItems: EmailData[] = [];
+      let finalNextPageToken: string | undefined = undefined;
+      let totalResultSizeEstimate = 0;
+      let currentPageToken = options.pageToken;
+      
+      // Stabilim dimensiunea paginii și limita maximă pentru paginarea automată
+      const pageSize = options.pageSize || 25; // Implicit aducem 25 de rezultate
+      const maxAutoFetchResults = options.maxAutoFetchResults || 100; // Limită maximă de 100 email-uri
+      
+      // Bucla pentru paginare automată
+      do {
+        const response = await this.gmail.users.messages.list({
+          userId: this.userId,
+          maxResults: pageSize,
+          pageToken: currentPageToken,
+          includeSpamTrash: options.includeSpamTrash,
+          q: query
+        });
+        
+        const messages = response.data.messages || [];
+        const messageDetails = await Promise.all(
+          messages.map(msg => this.getMessage(msg.id!))
+        );
+        
+        // Adăugăm rezultatele la lista completă
+        allItems = [...allItems, ...messageDetails];
+        
+        // Actualizăm token-ul pentru următoarea pagină
+        currentPageToken = response.data.nextPageToken || undefined;
+        finalNextPageToken = currentPageToken;
+        
+        // Actualizăm estimarea totală a rezultatelor
+        totalResultSizeEstimate = response.data.resultSizeEstimate || allItems.length;
+        
+        // Verificăm condițiile de oprire pentru paginarea automată
+        if (!options.autoFetchAll || allItems.length >= maxAutoFetchResults || !currentPageToken) {
+          break;
+        }
+        
+      } while (true);
+      
       return {
-        items: messageDetails,
-        nextPageToken: response.data.nextPageToken || undefined,
-        resultSizeEstimate: response.data.resultSizeEstimate || messages.length
+        items: allItems,
+        nextPageToken: finalNextPageToken,
+        resultSizeEstimate: totalResultSizeEstimate
       };
     } catch (error) {
       throw new Error(`Failed to list messages: ${error}`);
@@ -142,6 +174,22 @@ export class GmailClientWrapper {
         }
       }
       
+      // Extract date information from headers
+      const dateHeader = headers.find(h => h.name?.toLowerCase() === 'date')?.value;
+      let timestamp: string | undefined = undefined;
+      
+      if (dateHeader) {
+        try {
+          // Parse the date header and convert to standard format
+          const dateObj = new Date(dateHeader);
+          timestamp = dateObj.toISOString();
+        } catch (e) {
+          console.error('Error parsing date header:', e);
+          // If parsing fails, use the original header value
+          timestamp = dateHeader;
+        }
+      }
+      
       return {
         threadId: message.threadId || undefined,
         messageId: message.id || messageId,
@@ -154,6 +202,7 @@ export class GmailClientWrapper {
         isUnread,
         category,
         isInInbox,
+        timestamp,
         attachments: this.extractAttachments(message),
       };
     } catch (error) {

@@ -168,4 +168,17 @@ export function ensureCorrectUnreadSyntax(query: string): string {
     return query.replace(/is:unread/g, 'label:unread');
   }
   return query;
+}
+
+// Helper function to format timestamp in a standardized way
+export function formatTimestamp(timestamp?: string): string {
+  if (!timestamp) return 'Received: Unknown';
+  
+  try {
+    const date = new Date(timestamp);
+    return `Received: ${date.toISOString().replace('T', ' ').substring(0, 19)}`;
+  } catch (e) {
+    // If parsing fails, return the raw timestamp
+    return `Received: ${timestamp}`;
+  }
 } 

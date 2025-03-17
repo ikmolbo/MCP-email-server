@@ -72,19 +72,27 @@ src/
 
 ## Configuration
 
-The server can be configured through environment variables or a configuration file.
+The server can be configured through environment variables:
 
-### Environment Variables
 - `GMAIL_OAUTH_PATH` - Path to the OAuth credentials file (default: `~/.email-mcp/gcp-oauth.keys.json`)
 - `GMAIL_CREDENTIALS_PATH` - Path to the credentials file (default: `~/.email-mcp/credentials.json`)
 - `TIME_ZONE` - The timezone to use for timestamps and date queries (default: `UTC`)
 
-### Configuration File
-You can also create a configuration file at `~/.email-mcp/config.json`:
+### Configuration in Claude Desktop
+
+Add the following to your `claude_desktop_config.json` to configure the Email MCP Server:
 
 ```json
 {
-  "timeZone": "Europe/Bucharest" 
+  "mcpServers": {
+    "email": {
+      "command": "npx",
+      "args": ["-y", "@cristip73/mcp-email-server"], 
+      "env": {
+        "TIME_ZONE": "Europe/Bucharest"
+      }
+    }
+  }
 }
 ```
 

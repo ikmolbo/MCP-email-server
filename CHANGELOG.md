@@ -42,7 +42,7 @@
 
 ### Added
 - Timezone configuration support for email timestamps and date queries
-- Ability to configure timezone through environment variable TIME_ZONE or config.json file
+- Support for setting timezone through environment variable TIME_ZONE via Claude configuration
 - Automatic adjustment of all date/time display and queries to use the configured timezone
 - Validation of timezone format with fallback to UTC if invalid
 - Automatic pagination with new `autoFetchAll` parameter for email search tools:

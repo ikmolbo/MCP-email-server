@@ -232,6 +232,120 @@ export class GmailClientWrapper {
     }
   }
 
+  /**
+   * Obține alias-ul send-as implicit (default) configurat în Gmail
+   */
+  async getDefaultSendAsAlias(): Promise<gmail_v1.Schema$SendAs | undefined> {
+    try {
+      const aliases = await this.getSendAsAliases();
+      return aliases.find(alias => alias.isDefault === true);
+    } catch (error) {
+      throw new Error(`Failed to get default send-as alias: ${error}`);
+    }
+  }
+
+  /**
+   * Determină adresa corectă pentru răspuns bazată pe adresele din emailul original
+   * @param originalEmail - Emailul la care se răspunde
+   * @param fromAddressOverride - Adresa specificată manual (are prioritate)
+   */
+  async determineReplyFromAddress(
+    originalEmail: EmailData,
+    fromAddressOverride?: string
+  ): Promise<string | undefined> {
+    // Dacă s-a specificat manual o adresă, o folosim pe aceasta
+    if (fromAddressOverride) {
+      return fromAddressOverride;
+    }
+
+    try {
+      // Obține toate adresele send-as disponibile
+      const aliases = await this.getSendAsAliases();
+      let fromAddress: string | undefined;
+      
+      // Mai întâi verificăm dacă vreuna dintre adresele noastre se potrivește cu 
+      // destinatarii emailului original (To sau CC)
+      if (originalEmail.to && originalEmail.to.length > 0) {
+        for (const toAddress of originalEmail.to) {
+          const toEmail = this.extractEmailAddress(toAddress);
+          
+          const matchedAlias = aliases.find(alias => 
+            alias.sendAsEmail?.toLowerCase() === toEmail.toLowerCase()
+          );
+          
+          if (matchedAlias && matchedAlias.sendAsEmail) {
+            fromAddress = matchedAlias.displayName ? 
+              `${matchedAlias.displayName} <${matchedAlias.sendAsEmail}>` : 
+              matchedAlias.sendAsEmail;
+            break;
+          }
+        }
+      }
+      
+      // Verificăm și în adresele CC dacă nu am găsit o potrivire în To
+      if (!fromAddress && originalEmail.cc && originalEmail.cc.length > 0) {
+        for (const ccAddress of originalEmail.cc) {
+          const ccEmail = this.extractEmailAddress(ccAddress);
+          
+          const matchedAlias = aliases.find(alias => 
+            alias.sendAsEmail?.toLowerCase() === ccEmail.toLowerCase()
+          );
+          
+          if (matchedAlias && matchedAlias.sendAsEmail) {
+            fromAddress = matchedAlias.displayName ? 
+              `${matchedAlias.displayName} <${matchedAlias.sendAsEmail}>` : 
+              matchedAlias.sendAsEmail;
+            break;
+          }
+        }
+      }
+      
+      // Dacă nu am găsit o adresă potrivită, folosim adresa implicită
+      if (!fromAddress) {
+        const defaultAlias = aliases.find(alias => alias.isDefault === true);
+        if (defaultAlias && defaultAlias.sendAsEmail) {
+          fromAddress = defaultAlias.displayName ? 
+            `${defaultAlias.displayName} <${defaultAlias.sendAsEmail}>` : 
+            defaultAlias.sendAsEmail;
+        }
+      }
+      
+      return fromAddress;
+    } catch (error) {
+      console.error('Error determining reply from address:', error);
+      return undefined;
+    }
+  }
+  
+  /**
+   * Extrage adresa de email din formatul "Nume <email@example.com>"
+   */
+  extractEmailAddress(address: string): string {
+    const match = address.match(/<([^>]+)>/);
+    return match ? match[1] : address;
+  }
+  
+  /**
+   * Exclude adresele proprii din lista de destinatari
+   * @param recipients - Lista de destinatari
+   */
+  async filterOutOwnAddresses(recipients: string[]): Promise<string[]> {
+    try {
+      const aliases = await this.getSendAsAliases();
+      const myEmails = aliases
+        .filter(alias => alias.sendAsEmail)
+        .map(alias => alias.sendAsEmail!.toLowerCase());
+      
+      return recipients.filter(recipient => {
+        const email = this.extractEmailAddress(recipient).toLowerCase();
+        return !myEmails.includes(email);
+      });
+    } catch (error) {
+      console.error('Error filtering out own addresses:', error);
+      return recipients;
+    }
+  }
+
   async sendMessage(options: {
     to: string[];
     subject: string;

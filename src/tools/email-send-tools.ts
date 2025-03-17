@@ -12,6 +12,7 @@ const SendEmailSchema = z.object({
   bcc: z.array(z.string()).optional().describe("List of BCC recipients"),
   inReplyTo: z.string().optional().describe("Message ID to reply to"),
   threadId: z.string().optional().describe("Thread ID to add the message to"),
+  from: z.string().optional().describe("Specific send-as email address to use as sender"),
 });
 
 export const sendEmailTool: Tool = {
@@ -50,6 +51,10 @@ export const sendEmailTool: Tool = {
       threadId: {
         type: "string",
         description: "Thread ID to add the message to"
+      },
+      from: {
+        type: "string",
+        description: "Specific send-as email address to use as sender"
       }
     },
     required: ["to", "subject", "body"]
@@ -62,16 +67,18 @@ export const sendEmailTool: Tool = {
     bcc?: string[];
     inReplyTo?: string;
     threadId?: string;
+    from?: string;
   }) => {
-    // If this is a reply, get the original message details
+    // Variabile pentru referințe și adresa expeditorului
     let references: string[] = [];
-    let fromAddress: string | undefined;
+    let fromAddress: string | undefined = params.from;
     
+    // Dacă este un răspuns la un email existent, obținem detaliile acestuia
     if (params.inReplyTo) {
-      // Get original message details
+      // Obține detaliile emailului original
       const originalEmail = await client.getMessage(params.inReplyTo);
       
-      // Extract any existing references
+      // Extrage referințele existente pentru threading corect
       if (originalEmail.headers) {
         const existingRefs = originalEmail.headers.find(h => h.name?.toLowerCase() === 'references')?.value;
         const messageId = originalEmail.headers.find(h => h.name?.toLowerCase() === 'message-id')?.value;
@@ -84,34 +91,30 @@ export const sendEmailTool: Tool = {
         }
       }
       
-      // Get send-as aliases to find correct reply-from address
-      const aliases = await client.getSendAsAliases();
-      if (originalEmail.to && originalEmail.to.length > 0) {
-        // Try to find matching alias for the original recipient
-        let emailAddress = originalEmail.to[0];
-        const match = emailAddress.match(/<([^>]+)>/);
-        
-        if (match && match[1]) {
-          emailAddress = match[1];
-        }
-        
-        const matchedAlias = aliases.find(alias => 
-          alias.sendAsEmail === emailAddress
-        );
-        
-        if (matchedAlias && matchedAlias.sendAsEmail) {
-          fromAddress = matchedAlias.displayName ? 
-            `${matchedAlias.displayName} <${matchedAlias.sendAsEmail}>` : 
-            matchedAlias.sendAsEmail;
-        }
+      // Determină adresa corectă de expeditor pentru răspuns
+      if (!fromAddress) {
+        fromAddress = await client.determineReplyFromAddress(originalEmail);
+      }
+    } else if (!fromAddress) {
+      // Pentru email-uri noi (nu răspunsuri), folosim adresa implicită dacă nu s-a specificat una
+      const defaultAlias = await client.getDefaultSendAsAlias();
+      if (defaultAlias && defaultAlias.sendAsEmail) {
+        fromAddress = defaultAlias.displayName ? 
+          `${defaultAlias.displayName} <${defaultAlias.sendAsEmail}>` : 
+          defaultAlias.sendAsEmail;
       }
     }
     
+    // Filtrăm adresele proprii din destinatari
+    const filteredTo = await client.filterOutOwnAddresses(params.to);
+    const filteredCc = params.cc ? await client.filterOutOwnAddresses(params.cc) : undefined;
+    
+    // Trimite mesajul cu parametrii actualizați
     const result = await client.sendMessage({
-      to: params.to,
+      to: filteredTo,
       subject: params.subject,
       content: params.body,
-      cc: params.cc,
+      cc: filteredCc,
       threadId: params.threadId,
       from: fromAddress,
       inReplyTo: params.inReplyTo,
@@ -121,7 +124,8 @@ export const sendEmailTool: Tool = {
     return {
       messageId: result.messageId,
       threadId: result.threadId,
-      to: params.to,
+      to: filteredTo,
+      cc: filteredCc,
       subject: params.subject,
       from: fromAddress
     };
@@ -170,6 +174,10 @@ export const replyAllEmailTool: Tool = {
         type: "array",
         items: { type: "string" },
         description: "Recipients to exclude from the reply"
+      },
+      from: {
+        type: "string",
+        description: "Specific send-as email address to use as sender (optional)"
       }
     },
     required: ["messageId", "body"]
@@ -179,86 +187,66 @@ export const replyAllEmailTool: Tool = {
     body: string;
     additionalRecipients?: string[];
     excludeRecipients?: string[];
+    from?: string;
   }) => {
     try {
-      // Get original message details
+      // Obține detaliile emailului original
       const originalEmail = await client.getMessage(params.messageId);
       
-      // If there's no threadId, we can't do a proper reply
+      // Dacă nu există threadId, nu putem face un răspuns corect
       if (!originalEmail.threadId) {
         throw new Error("Cannot reply to message: no thread ID available");
       }
       
-      // Extract the original sender to use as primary recipient
+      // Expeditorul original devine destinatarul principal
       const originalSender = originalEmail.from;
       
-      // Get original CC recipients from headers
-      const ccHeader = originalEmail.headers.find(h => h.name?.toLowerCase() === 'cc');
-      let ccRecipients: string[] = [];
-      if (ccHeader && ccHeader.value) {
-        ccRecipients = ccHeader.value.split(/,\s*/).filter(Boolean);
-      }
+      // Combinăm toți destinatarii (To + CC din emailul original)
+      let allRecipients = [
+        ...originalEmail.to, 
+        ...(originalEmail.cc || [])
+      ];
       
-      // Combine all recipients (original To + CC)
-      let allRecipients = [...originalEmail.to, ...ccRecipients];
-      
-      // Add any additional recipients
+      // Adăugăm orice destinatari suplimentari
       if (params.additionalRecipients && params.additionalRecipients.length > 0) {
         allRecipients = [...allRecipients, ...params.additionalRecipients];
       }
       
-      // Get send-as aliases to find correct reply-from address and to avoid self-reply
-      const aliases = await client.getSendAsAliases();
-      let fromAddress: string | undefined;
-      let myEmails: string[] = [];
-      
-      // Extract own email addresses from aliases
-      aliases.forEach(alias => {
-        if (alias.sendAsEmail) {
-          myEmails.push(alias.sendAsEmail.toLowerCase());
-          
-          // Find the right address to send from based on original To
-          if (originalEmail.to.some(to => {
-            const toEmail = extractEmail(to);
-            return toEmail === alias.sendAsEmail?.toLowerCase();
-          })) {
-            fromAddress = alias.displayName ? 
-              `${alias.displayName} <${alias.sendAsEmail}>` : 
-              alias.sendAsEmail;
-          }
-        }
-      });
-      
-      // Use primary send-as if no match found
-      if (!fromAddress && aliases.length > 0 && aliases[0].sendAsEmail) {
-        fromAddress = aliases[0].displayName ? 
-          `${aliases[0].displayName} <${aliases[0].sendAsEmail}>` : 
-          aliases[0].sendAsEmail;
+      // Determinăm adresa corectă de expeditor (from) pentru răspuns
+      let fromAddress = params.from;
+      if (!fromAddress) {
+        fromAddress = await client.determineReplyFromAddress(originalEmail);
       }
       
-      // Normalize email addresses for comparison
-      const normalizedMyEmails = myEmails.map(email => email.toLowerCase());
-      const normalizedExcludeList = params.excludeRecipients ? 
-        normalizeEmailAddresses(params.excludeRecipients) : [];
+      // Obținem toate adresele noastre de email pentru filtrare
+      const aliases = await client.getSendAsAliases();
+      const myEmails = aliases
+        .filter(alias => alias.sendAsEmail)
+        .map(alias => alias.sendAsEmail!.toLowerCase());
       
-      // Filter out own email addresses and excluded recipients
+      // Lista de destinatari care trebuie excluși (adresele noastre + cele specificate explicit)
+      const excludeEmails = [
+        ...myEmails,
+        ...(params.excludeRecipients 
+          ? params.excludeRecipients.map(addr => client.extractEmailAddress(addr).toLowerCase()) 
+          : [])
+      ];
+      
+      // Filtrăm destinatarii pentru a exclude adresele proprii și cele specificate manual
       const filteredRecipients = allRecipients.filter(recipient => {
-        const email = extractEmail(recipient);
-        
-        // Exclude if it's our own email or explicitly excluded
-        return !normalizedMyEmails.includes(email) && 
-               !normalizedExcludeList.includes(email);
+        const email = client.extractEmailAddress(recipient).toLowerCase();
+        return !excludeEmails.includes(email);
       });
       
-      // Split recipients into To and CC
-      // Original sender goes to To, all others go to CC
+      // Expeditorul original merge în To, restul în CC
       const to = [originalSender];
       const cc = filteredRecipients.filter(r => {
-        // Don't include original sender in CC
-        return extractEmail(r) !== extractEmail(originalSender);
+        const recipientEmail = client.extractEmailAddress(r).toLowerCase();
+        const senderEmail = client.extractEmailAddress(originalSender).toLowerCase();
+        return recipientEmail !== senderEmail;
       });
       
-      // Extract any existing references
+      // Extrage referințele existente pentru threading corect
       let references: string[] = [];
       if (originalEmail.headers) {
         const existingRefs = originalEmail.headers.find(h => h.name?.toLowerCase() === 'references')?.value;
@@ -272,13 +260,13 @@ export const replyAllEmailTool: Tool = {
         }
       }
       
-      // Prepare subject with "Re:" prefix if needed
+      // Pregătește subiectul cu prefixul "Re:" dacă nu există deja
       let subject = originalEmail.subject;
       if (!subject.toLowerCase().startsWith('re:')) {
         subject = `Re: ${subject}`;
       }
       
-      // Send the reply to all
+      // Trimite răspunsul către toți
       const result = await client.sendMessage({
         to,
         cc,
@@ -300,6 +288,170 @@ export const replyAllEmailTool: Tool = {
       };
     } catch (error) {
       throw new Error(`Failed to reply to all: ${error}`);
+    }
+  }
+};
+
+// Schema definition
+const ListSendAsSchema = z.object({});
+
+export const listSendAsAccountsTool: Tool = {
+  name: "list_send_as_accounts",
+  description: "List all accounts that you can send mail as, including their primary email and any additional aliases",
+  inputSchema: {
+    type: "object",
+    properties: {},
+    required: []
+  },
+  handler: async (client: GmailClientWrapper, params: {}) => {
+    try {
+      // Obține toate adresele send-as disponibile
+      const aliases = await client.getSendAsAliases();
+      
+      // Identifică adresa implicită (default)
+      const defaultAlias = aliases.find(alias => alias.isDefault === true);
+      const defaultEmail = defaultAlias?.sendAsEmail || '';
+      
+      // Formatează rezultatul pentru afișare
+      const formattedAliases = aliases.map(alias => {
+        return {
+          email: alias.sendAsEmail || '',
+          name: alias.displayName || '',
+          isDefault: alias.isDefault || false,
+          isPrimary: alias.isPrimary || false,
+          replyToAddress: alias.replyToAddress || null,
+          verificationStatus: alias.verificationStatus || 'unknown'
+        };
+      });
+      
+      return {
+        accounts: formattedAliases,
+        defaultAccount: defaultEmail,
+        count: aliases.length
+      };
+    } catch (error) {
+      throw new Error(`Failed to list send-as accounts: ${error}`);
+    }
+  }
+};
+
+// Schema definition for Forward Email
+const ForwardEmailSchema = z.object({
+  messageId: z.string().describe("ID of the message to forward"),
+  to: z.array(z.string()).describe("Recipients to forward the email to"),
+  additionalContent: z.string().optional().describe("Additional content to add before the forwarded message"),
+  cc: z.array(z.string()).optional().describe("CC recipients"),
+  from: z.string().optional().describe("Specific send-as email address to use as sender")
+});
+
+export const forwardEmailTool: Tool = {
+  name: "forward_email",
+  description: "Forward an email to other recipients",
+  inputSchema: {
+    type: "object",
+    properties: {
+      messageId: {
+        type: "string",
+        description: "ID of the message to forward"
+      },
+      to: {
+        type: "array",
+        items: { type: "string" },
+        description: "Recipients to forward the email to"
+      },
+      additionalContent: {
+        type: "string",
+        description: "Additional content to add before the forwarded message"
+      },
+      cc: {
+        type: "array",
+        items: { type: "string" },
+        description: "CC recipients"
+      },
+      from: {
+        type: "string",
+        description: "Specific send-as email address to use as sender"
+      }
+    },
+    required: ["messageId", "to"]
+  },
+  handler: async (client: GmailClientWrapper, params: {
+    messageId: string;
+    to: string[];
+    additionalContent?: string;
+    cc?: string[];
+    from?: string;
+  }) => {
+    try {
+      // Obține detaliile emailului original
+      const originalEmail = await client.getMessage(params.messageId);
+      
+      // Pregătește subiectul cu prefixul "Fwd:" dacă nu există deja
+      let subject = originalEmail.subject;
+      if (!subject.toLowerCase().startsWith('fwd:')) {
+        subject = `Fwd: ${subject}`;
+      }
+      
+      // Determină adresa corectă de expeditor
+      let fromAddress = params.from;
+      if (!fromAddress) {
+        // Pentru forward, în mod implicit folosim adresa default
+        const defaultAlias = await client.getDefaultSendAsAlias();
+        if (defaultAlias && defaultAlias.sendAsEmail) {
+          fromAddress = defaultAlias.displayName ? 
+            `${defaultAlias.displayName} <${defaultAlias.sendAsEmail}>` : 
+            defaultAlias.sendAsEmail;
+        }
+      }
+      
+      // Pregătește conținutul email-ului forwarded
+      let content = '';
+      
+      // Adaugă conținut suplimentar dacă există
+      if (params.additionalContent) {
+        content += params.additionalContent + '\n\n';
+      }
+      
+      // Adaugă headerele email-ului original
+      content += '---------- Forwarded message ---------\n';
+      content += `From: ${originalEmail.from}\n`;
+      content += `Date: ${originalEmail.timestamp || 'Unknown'}\n`;
+      content += `Subject: ${originalEmail.subject}\n`;
+      content += `To: ${originalEmail.to.join(', ')}\n`;
+      
+      // Adaugă headerul CC dacă există
+      if (originalEmail.cc && originalEmail.cc.length > 0) {
+        content += `Cc: ${originalEmail.cc.join(', ')}\n`;
+      }
+      
+      content += '\n';
+      
+      // Adaugă conținutul email-ului original
+      content += originalEmail.content || '';
+      
+      // Filtrăm adresele proprii din destinatari
+      const filteredTo = await client.filterOutOwnAddresses(params.to);
+      const filteredCc = params.cc ? await client.filterOutOwnAddresses(params.cc) : undefined;
+      
+      // Trimite email-ul forwarded
+      const result = await client.sendMessage({
+        to: filteredTo,
+        cc: filteredCc,
+        subject,
+        content,
+        from: fromAddress,
+      });
+      
+      return {
+        messageId: result.messageId,
+        threadId: result.threadId,
+        to: filteredTo,
+        cc: filteredCc,
+        subject,
+        from: fromAddress
+      };
+    } catch (error) {
+      throw new Error(`Failed to forward email: ${error}`);
     }
   }
 }; 

@@ -463,6 +463,65 @@ Pentru a schimba fusul orar, configurația TIME_ZONE trebuie modificată la nive
     `,
     parameters: [],
     required_output: ["timeZoneConfig", "offsetHours", "currentTimeLocal", "currentTimeUTC"]
+  },
+
+  send_as_accounts: {
+    name: "send_as_accounts",
+    description: "Lista conturilor și adreselor de email care pot fi folosite pentru trimiterea email-urilor",
+    template: `
+Pentru a gestiona email-urile trimise din diferite adrese, poți folosi tool-ul list_send_as_accounts.
+
+Acest tool va lista toate conturile și adresele de email care pot fi folosite pentru trimiterea mesajelor, inclusiv:
+1. Adresa de email principală asociată cu contul Gmail
+2. Orice alias sau adresă alternativă configurată pentru "Send As"
+3. Indicarea adresei implicite (default) pentru trimiterea email-urilor
+
+Informațiile returnate includ:
+- email: Adresa de email
+- name: Numele afișat pentru adresă
+- isDefault: Dacă este adresa implicită pentru trimiterea email-urilor
+- isPrimary: Dacă este adresa principală a contului
+- verificationStatus: Starea de verificare a adresei
+
+Cum să folosești aceste informații:
+- În tool-ul send_email, poți specifica parametrul "from" cu una dintre aceste adrese
+- În tool-urile de reply și reply_all, adresa potrivită va fi selectată automat (adresa la care a fost trimis email-ul original)
+- Email-urile tale nu vor fi incluși în destinatari când folosești reply_all (evitarea auto-trimiterii)
+
+IMPORTANT: Întotdeauna trimite de la adresa corectă în funcție de context! Dacă răspunzi la un email trimis la o anumită adresă, folosește acea adresă pentru răspuns.
+    `,
+    parameters: [],
+    required_output: ["accounts", "defaultAccount", "count"]
+  },
+
+  forward_email: {
+    name: "forward_email",
+    description: "Redirecționează (forward) un email către alți destinatari",
+    template: `
+Pentru a redirecționa (forward) un email către alți destinatari, folosește tool-ul forward_email.
+
+Parametri necesari:
+1. messageId - ID-ul mesajului care va fi redirecționat
+2. to - Lista de destinatari care vor primi email-ul redirecționat
+
+Parametri opționali:
+- additionalContent - Conținut suplimentar pe care vrei să-l adaugi înainte de mesajul redirecționat
+- cc - Lista de destinatari CC
+- from - Adresa specifică de la care vrei să trimiți (din conturile tale send-as)
+
+Comportament:
+- Subiectul va fi prefixat automat cu "Fwd:" dacă nu are deja acest prefix
+- Conținutul va include headerele mesajului original (From, Date, Subject, To, Cc)
+- Destinatarii proprii sunt eliminați automat din liste pentru a evita auto-trimiterea
+- Dacă nu specifici o adresă "from", se va folosi adresa implicită din conturile tale
+
+Exemplu de utilizare:
+"Vreau să redirecționez emailul cu ID-ul <message_id> către john@example.com și să adaug un comentariu înainte."
+
+Notă: Email-ul redirecționat va conține tot conținutul original, inclusiv headerele și atașamentele.
+    `,
+    parameters: ["messageId", "to", "additionalContent", "cc", "from"],
+    required_output: ["messageId", "threadId", "to", "subject", "from"]
   }
 };
 

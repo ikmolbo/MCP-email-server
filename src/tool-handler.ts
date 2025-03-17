@@ -1,7 +1,7 @@
 import { Tool, CallToolRequest, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { GmailClientWrapper } from "./client-wrapper.js";
 import { readEmailTool } from "./tools/email-read-tools.js";
-import { sendEmailTool, replyAllEmailTool } from "./tools/email-send-tools.js";
+import { sendEmailTool, replyAllEmailTool, listSendAsAccountsTool, forwardEmailTool } from "./tools/email-send-tools.js";
 import { searchEmailsTool, getRecentEmailsTool } from "./tools/email-search-tools.js";
 import { 
   listLabelsTool, 
@@ -30,6 +30,8 @@ export const tools = [
   readEmailTool,
   sendEmailTool,
   replyAllEmailTool,
+  forwardEmailTool,
+  listSendAsAccountsTool,
   searchEmailsTool,
   getRecentEmailsTool,
   

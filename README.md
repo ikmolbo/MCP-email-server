@@ -174,6 +174,24 @@ Parameters:
 - `inReplyTo`: Message ID to reply to
 - `threadId`: Thread ID to add the message to
 
+### Reply All Email
+```
+reply_all_email
+```
+Reply to an email and include all original recipients (TO and CC).
+
+Parameters:
+- `messageId`: ID of the message to reply to (required)
+- `body`: Email body content (required)
+- `additionalRecipients`: Additional recipients to include in the reply
+- `excludeRecipients`: Recipients to exclude from the reply
+
+The tool automatically handles:
+- Including all original recipients (TO and CC)
+- Excluding your own email address to prevent self-replies
+- Setting proper email headers for threading
+- Using the correct FROM address based on the original recipient
+
 ### Get Recent Emails
 ```
 get_recent_emails

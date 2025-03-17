@@ -30,6 +30,7 @@ export const readEmailTool: Tool = {
       subject: email.subject,
       from: email.from,
       to: email.to,
+      cc: email.cc,
       content: email.content,
       isUnread: email.labels?.includes('UNREAD') || false,
       isInInbox: email.labels?.includes('INBOX') || false,

@@ -28,6 +28,7 @@ export interface EmailData {
   subject: string;
   from: string;
   to: string[];
+  cc?: string[];
   content: string;
   labels?: string[];
   isUnread: boolean;
@@ -195,13 +196,18 @@ export class GmailClientWrapper {
         }
       }
       
+      // Extract To and CC fields
+      const to = (headers.find(h => h.name?.toLowerCase() === 'to')?.value || '').split(',').map(e => e.trim());
+      const cc = headers.find(h => h.name?.toLowerCase() === 'cc')?.value?.split(',').map(e => e.trim()) || [];
+      
       return {
         threadId: message.threadId || undefined,
         messageId: message.id || messageId,
         headers: headers,
         subject: headers.find(h => h.name?.toLowerCase() === 'subject')?.value || '',
         from: headers.find(h => h.name?.toLowerCase() === 'from')?.value || '',
-        to: (headers.find(h => h.name?.toLowerCase() === 'to')?.value || '').split(',').map(e => e.trim()),
+        to: to,
+        cc: cc,
         content: this.extractContent(message),
         labels: labels,
         isUnread,
@@ -232,6 +238,7 @@ export class GmailClientWrapper {
     content: string;
     threadId?: string;
     from?: string;
+    cc?: string[];
     inReplyTo?: string;
     references?: string[];
   }): Promise<{ messageId: string; threadId?: string }> {
@@ -301,6 +308,7 @@ export class GmailClientWrapper {
     subject: string;
     content: string;
     from?: string;
+    cc?: string[];
     inReplyTo?: string;
     references?: string[];
   }): Promise<string> {
@@ -310,6 +318,7 @@ export class GmailClientWrapper {
       `To: ${options.to.join(', ')}`,
       `Subject: ${encodedSubject}`,
       options.from ? `From: ${options.from}` : '',
+      options.cc?.length ? `Cc: ${options.cc.join(', ')}` : '',
       options.inReplyTo ? `In-Reply-To: ${options.inReplyTo}` : '',
       options.references?.length ? `References: ${options.references.join(' ')}` : '',
       'Content-Type: text/plain; charset=utf-8',

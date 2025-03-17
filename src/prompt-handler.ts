@@ -133,6 +133,47 @@ Please ensure all these elements are provided to maintain email thread context.
     required_output: ["messageId", "threadId"]
   },
 
+  send_reply_all: {
+    name: "send_reply_all",
+    description: "Reply to an email and include all original recipients",
+    template: `
+When you need to Reply All to an email, keeping all original recipients in the loop, you need:
+
+1. Original Message ID (required)
+   This identifies the specific email you're replying to
+
+2. Reply Content (required) 
+   The body text of your reply message
+
+3. Additional Recipients (optional)
+   Any new recipients you want to add to the conversation
+
+4. Exclude Recipients (optional)
+   Any original recipients you want to remove from this reply
+
+WHAT REPLY ALL DOES:
+- Sends a reply to the original sender AND all other recipients (To + CC)
+- Maintains the email thread (keeps subject with Re: prefix)
+- Sets proper email headers to show as part of the same conversation
+- Excludes your own email address to prevent sending to yourself
+- Uses the correct "From" address (the one that received the original email)
+
+Example usage:
+- Reply to a work email including everyone in the original thread
+- Continue a group conversation
+- Respond to a message where multiple people need to see your response
+
+Note: You only need to provide the messageId and your reply content.
+The tool will automatically:
+1. Extract all original recipients
+2. Filter out your own email address
+3. Format the subject line correctly
+4. Set all required email headers for threading
+    `,
+    parameters: ["messageId", "body", "additionalRecipients", "excludeRecipients"],
+    required_output: ["messageId", "threadId", "to", "cc"]
+  },
+
   get_recent_emails: {
     name: "get_recent_emails",
     description: "Get recent emails with support for Gmail categories, read state, and date filtering",

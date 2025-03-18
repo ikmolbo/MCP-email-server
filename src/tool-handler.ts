@@ -26,7 +26,6 @@ import {
   sendDraftTool
 } from "./tools/email-draft-tools.js";
 import {
-  getAttachmentTool,
   listAttachmentsTool,
   saveAttachmentTool
 } from "./tools/email-attachment-tools.js";
@@ -72,7 +71,6 @@ export const tools = [
   sendDraftTool,
   
   // Attachment management tools
-  getAttachmentTool,
   listAttachmentsTool,
   saveAttachmentTool,
   

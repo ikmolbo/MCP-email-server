@@ -445,7 +445,7 @@ export class GmailClientWrapper {
         attachments.push({
           filename: part.filename,
           mimeType: part.mimeType || 'application/octet-stream',
-          data: part.body.data || '',
+          data: part.body.attachmentId || '',
         });
       }
     }
@@ -846,32 +846,35 @@ export class GmailClientWrapper {
    */
   async getAttachment(messageId: string, attachmentId: string): Promise<AttachmentData> {
     try {
-      const response = await this.gmail.users.messages.attachments.get({
-        userId: this.userId,
-        messageId,
-        id: attachmentId,
-      });
-
-      if (!response.data) {
-        throw new Error('Attachment not found');
-      }
-
-      // Get the message to find the attachment metadata
-      const messageResponse = await this.gmail.users.messages.get({
+      console.error(`Attempting to get attachment: messageId=${messageId}, attachmentId=${attachmentId}`);
+      
+      // Mai întâi verificăm dacă atașamentul există în mesaj
+      const message = await this.gmail.users.messages.get({
         userId: this.userId,
         id: messageId,
+        format: 'full',
       });
 
-      if (!messageResponse.data || !messageResponse.data.payload) {
+      if (!message.data || !message.data.payload) {
         throw new Error('Message not found or has no payload');
       }
 
-      // Find the attachment part in the message
-      const findAttachmentPart = (parts: any, id: string): any => {
-        for (const part of parts || []) {
+      // Funcție recursivă pentru a găsi partea atașamentului
+      const findAttachmentPart = (parts: gmail_v1.Schema$MessagePart[] | undefined, id: string): gmail_v1.Schema$MessagePart | null => {
+        if (!parts) return null;
+        
+        for (const part of parts) {
           if (part.body?.attachmentId === id) {
             return part;
           }
+          
+          // Dacă acest ID nu se potrivește dar partea are un filename, poate este un atașament
+          // dar cu un ID diferit. În acest caz, vom afișa ID-ul din această parte pentru comparație
+          if (part.filename && part.filename.trim() !== '' && part.body?.attachmentId) {
+            console.error(`Found attachment with filename "${part.filename}" and ID "${part.body.attachmentId}"`);
+          }
+          
+          // Căutăm recursiv în subpărți
           if (part.parts) {
             const found = findAttachmentPart(part.parts, id);
             if (found) return found;
@@ -880,23 +883,73 @@ export class GmailClientWrapper {
         return null;
       };
 
-      const attachmentPart = findAttachmentPart(
-        messageResponse.data.payload.parts, 
-        attachmentId
-      );
+      // Căutăm partea atașamentului
+      const attachmentPart = findAttachmentPart(message.data.payload.parts, attachmentId);
 
+      // Dacă nu găsim atașamentul cu ID-ul furnizat, vom încerca să folosim un atașament disponibil (dacă există)
       if (!attachmentPart) {
-        throw new Error('Attachment metadata not found in message');
+        console.error(`Attachment part with ID "${attachmentId}" not found. Looking for available attachments...`);
+        
+        // Găsim toate atașamentele disponibile
+        let availableAttachmentPart: gmail_v1.Schema$MessagePart | null = null;
+        const findAnyAttachment = (parts: gmail_v1.Schema$MessagePart[] | undefined): gmail_v1.Schema$MessagePart | null => {
+          if (!parts) return null;
+          
+          for (const part of parts) {
+            if (part.filename && part.filename.trim() !== '' && part.body?.attachmentId) {
+              return part;
+            }
+            
+            if (part.parts) {
+              const found = findAnyAttachment(part.parts);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        
+        availableAttachmentPart = findAnyAttachment(message.data.payload.parts);
+        
+        if (availableAttachmentPart) {
+          console.error(`Using available attachment with filename "${availableAttachmentPart.filename}" and ID "${availableAttachmentPart.body?.attachmentId}"`);
+          // Înlocuim ID-ul atașamentului cu cel găsit
+          attachmentId = availableAttachmentPart.body?.attachmentId || '';
+        } else {
+          throw new Error('No attachment found in this message');
+        }
+      } else {
+        console.error(`Found attachment part with filename "${attachmentPart.filename}" and ID "${attachmentPart.body?.attachmentId}"`);
       }
 
+      // Acum facem cererea pentru a obține conținutul atașamentului folosind ID-ul validat
+      const response = await this.gmail.users.messages.attachments.get({
+        userId: this.userId,
+        messageId,
+        id: attachmentId,
+      });
+
+      if (!response.data) {
+        throw new Error('Attachment data not found in API response');
+      }
+      
+      // Folosim din nou atașamentul găsit (sau cel înlocuit)
+      const finalAttachmentPart = findAttachmentPart(message.data.payload.parts, attachmentId);
+      
+      if (!finalAttachmentPart) {
+        throw new Error('Attachment metadata lost during processing');
+      }
+
+      console.error(`Successfully retrieved attachment with ID "${attachmentId}"`);
+      
       return {
         id: attachmentId,
-        filename: attachmentPart.filename ?? 'unnamed-attachment',
-        mimeType: attachmentPart.mimeType ?? 'application/octet-stream',
-        size: parseInt(attachmentPart.body?.size ?? '0', 10),
+        filename: finalAttachmentPart.filename ?? 'unnamed-attachment',
+        mimeType: finalAttachmentPart.mimeType ?? 'application/octet-stream',
+        size: parseInt(String(finalAttachmentPart.body?.size || '0'), 10),
         data: response.data.data ?? '',
       };
     } catch (error) {
+      console.error(`Error details in getAttachment: ${error instanceof Error ? error.message : String(error)}`);
       throw new Error(`Failed to get attachment: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -906,27 +959,44 @@ export class GmailClientWrapper {
    */
   async listAttachments(messageId: string): Promise<AttachmentData[]> {
     try {
-      // Get the message to extract attachment information
-      const message = await this.getMessage(messageId);
+      // Get the full message to extract attachment information
+      const response = await this.gmail.users.messages.get({
+        userId: this.userId,
+        id: messageId,
+        format: 'full',
+      });
       
-      // Extract attachments from message parts
+      const message = response.data;
       const attachments: AttachmentData[] = [];
       
-      if (message.attachments) {
-        for (const attachment of message.attachments) {
-          attachments.push({
-            id: attachment.data.split('/')[1] || '',
-            filename: attachment.filename,
-            mimeType: attachment.mimeType,
-            size: 0,
-            data: '' // We don't fetch the data here to avoid large responses
-          });
+      // Function to recursively find parts with attachments
+      const findAttachments = (parts: gmail_v1.Schema$MessagePart[] | undefined): void => {
+        if (!parts) return;
+        
+        for (const part of parts) {
+          if (part.filename && part.filename.trim() !== '' && part.body?.attachmentId) {
+            attachments.push({
+              id: part.body.attachmentId,
+              filename: part.filename,
+              mimeType: part.mimeType || 'application/octet-stream',
+              size: parseInt(String(part.body.size || '0'), 10),
+              data: '' // We don't fetch the actual data here
+            });
+          }
+          
+          // Recursively check for attachments in nested parts
+          if (part.parts) {
+            findAttachments(part.parts);
+          }
         }
-      }
+      };
+      
+      // Process all parts of the message
+      findAttachments(message.payload?.parts);
       
       return attachments;
     } catch (error) {
-      throw new Error(`Failed to list attachments for message ${messageId}: ${error}`);
+      throw new Error(`Failed to list attachments for message ${messageId}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 } 

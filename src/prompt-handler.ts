@@ -602,38 +602,35 @@ Pentru a gestiona atașamentele email-urilor, ai la dispoziție următoarele too
    Rezultat:
    - Lista cu toate atașamentele și detaliile lor (nume, tip, dimensiune)
 
-2. GET_ATTACHMENT
-   Obține un atașament specific dintr-un email.
+2. SAVE_ATTACHMENT
+   Salvează un atașament dintr-un email direct în sistemul de fișiere local.
    Parametri necesari:
    - messageId: ID-ul mesajului care conține atașamentul
-   - attachmentId: ID-ul atașamentului
-   Rezultat:
-   - Detaliile atașamentului și conținutul acestuia
-
-3. SAVE_ATTACHMENT
-   Salvează un atașament dintr-un email în sistemul de fișiere local.
-   Parametri necesari:
-   - messageId: ID-ul mesajului care conține atașamentul
-   - attachmentId: ID-ul atașamentului
    - targetPath: Calea unde va fi salvat atașamentul
+   Parametri opționali:
+   - attachmentId: ID-ul atașamentului (dacă nu este specificat, se va folosi automat primul atașament)
    Rezultat:
-   - Informații despre atașamentul salvat și datele necesare pentru salvarea în filesystem
+   - Informații despre atașamentul salvat și confirmare că fișierul a fost scris pe disc
 
 FLUX TIPIC DE LUCRU:
 1. Obții un email folosind read_email sau search_emails
 2. Listezi atașamentele acestuia cu list_attachments
-3. Salvezi un atașament specific cu save_attachment (folosind ID-ul obținut din lista)
+3. Salvezi un atașament specific cu save_attachment
 
-INTEGRAREA CU FILESYSTEM MCP:
-După ce obții rezultatul de la save_attachment, poți utiliza tool-ul "write_file" din Filesystem MCP 
-pentru a salva efectiv atașamentul folosind datele furnizate în rezultatul save_attachment.
+NOTĂ IMPORTANTĂ:
+Save_attachment este singura metodă aprobată pentru gestionarea atașamentelor. Aceasta gestionează automat:
+- Descărcarea atașamentului
+- Conversia din base64
+- Scrierea fișierului pe disc
+- Verificarea corectei salvări a fișierului
 
 Exemplu:
-1. Obții rezultatul de la save_attachment
-2. Utilizezi write_file din Filesystem MCP cu path-ul și conținutul furnizate în rezultat
+1. Identifică un email cu atașamente
+2. Listează atașamentele pentru a vedea ce conține emailul
+3. Salvează atașamentul dorit folosind save_attachment cu messageId și targetPath
 
 Notă: Atașamentele pot fi de diferite tipuri: documente, imagini, arhive, etc. Tipul MIME al atașamentului îți indică formatul acestuia.
-    `,
+`,
     parameters: ["messageId", "attachmentId"],
     required_output: ["operation", "messageId", "attachments"]
   },
@@ -651,35 +648,35 @@ Pentru a salva un atașament dintr-un email în sistemul de fișiere local, urme
 2. Listează atașamentele disponibile
    - Folosește list_attachments cu messageId
    - Vei primi o listă cu toate atașamentele disponibile
-   - Notează ID-ul atașamentului (attachmentId) pe care vrei să-l salvezi
+   - Opțional: Notează ID-ul atașamentului (attachmentId) pe care vrei să-l salvezi
+   - Dacă există un singur atașament sau vrei primul, poți omite attachmentId
 
 3. Specifică locația de salvare
    - Stabilește calea unde vrei să salvezi atașamentul (targetPath)
    - Asigură-te că ai drepturi de scriere în acea locație
 
 4. Salvează atașamentul
-   - Folosește save_attachment cu messageId, attachmentId și targetPath
-   - Vei primi datele necesare pentru a salva atașamentul
+   - Folosește save_attachment cu messageId și targetPath
+   - Opțional: Adaugă attachmentId dacă vrei un atașament specific
+   - Atașamentul va fi salvat direct pe disc la locația specificată
 
-5. Completează salvarea cu Filesystem MCP
-   - Utilizează tool-ul write_file din Filesystem MCP
-   - Transmite datele primite de la save_attachment către write_file
-
-INTEGRARE CU FILESYSTEM:
-Datele returnate de save_attachment conțin:
-- Numele fișierului și informații despre acesta (tip, dimensiune)
-- Conținutul atașamentului codificat în base64
-- Instrucțiuni pentru utilizarea cu Filesystem MCP
+CARACTERISTICI CHEIE ALE SAVE_ATTACHMENT:
+- Gestionează automat tot procesul, de la obținerea datelor până la scrierea pe disc
+- Verifică integritatea fișierului după salvare
+- Creează directoarele necesare dacă acestea nu există
+- Selectează automat primul atașament dacă nu se specifică un ID
 
 Exemplu de flux:
-1. Găsești emailul și identifici atașamentul
-2. Execuți save_attachment pentru a pregăti datele
-3. Folosești write_file din Filesystem MCP pentru a finaliza salvarea
+1. Găsești emailul cu search_emails
+2. Identifici atașamentele disponibile cu list_attachments
+3. Execuți save_attachment cu messageId și targetPath pentru a salva fișierul
 
 Note: 
 - Pentru fișiere mari, procesul de salvare poate dura mai mult timp
 - Verifică întotdeauna tipul fișierului pentru a te asigura că este sigur de salvat
-    `,
+- Dacă targetPath specifică doar un director, se va folosi numele original al fișierului
+- Dacă targetPath include și numele fișierului, acesta va fi folosit în locul numelui original
+`,
     parameters: ["messageId", "attachmentId", "targetPath"],
     required_output: ["success", "targetPath", "filename", "mimeType", "size"]
   }

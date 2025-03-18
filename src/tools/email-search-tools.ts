@@ -9,7 +9,32 @@ import {
   getDateQuery,
   ensureCorrectUnreadSyntax
 } from "../utils.js";
-import { timeZoneOffset, formatTimestampWithOffset } from "../timezone-utils.js";
+import { 
+  timeZoneOffset, 
+  formatTimestampWithOffset, 
+  transformDateStringToLocalUnix, 
+  getLocalMidnightUnixRange 
+} from "../timezone-utils.js";
+
+/**
+ * Replaces "after:YYYY/MM/DD" with "after:<unix_timestamp>", likewise for "before:YYYY/MM/DD".
+ * Example: "after:2025/03/19 label:unread" -> "after:1742680800 label:unread"
+ */
+export function transformDateBasedOperators(originalQuery: string): string {
+  if (!originalQuery) return originalQuery;
+  
+  let q = originalQuery;
+
+  // Regex that looks for after: or before: followed by "YYYY/MM/DD"
+  const re = /\b(after|before):(\d{4}\/\d{1,2}\/\d{1,2})\b/g;
+
+  q = q.replace(re, (match, op, dateStr) => {
+    const ts = transformDateStringToLocalUnix(dateStr); 
+    return `${op}:${ts}`;
+  });
+
+  return q;
+}
 
 // Schema definitions
 const GetRecentEmailsSchema = z.object({
@@ -80,40 +105,43 @@ export const searchEmailsTool: Tool = {
     timeFilter?: 'today' | 'yesterday' | 'last24h';
     autoFetchAll?: boolean;
   }) => {
-    // Start with user provided query
-    let fullQuery = params.query || '';
+    // Start with user provided query and transform any date-based operators
+    let userQuery = params.query || '';
     
     // Apply correct unread syntax
-    fullQuery = ensureCorrectUnreadSyntax(fullQuery);
+    userQuery = ensureCorrectUnreadSyntax(userQuery);
     
-    // Add time filter if specified and query doesn't already have date filters
-    const hasDateFilter = fullQuery.includes('after:') || 
-                         fullQuery.includes('before:') || 
-                         fullQuery.includes('newer_than:') || 
-                         fullQuery.includes('older_than:');
+    // Transform date-based operators to Unix timestamps
+    userQuery = transformDateBasedOperators(userQuery);
     
-    if (params.timeFilter && !hasDateFilter) {
+    // Start with the transformed user query
+    let finalQuery = userQuery;
+    
+    // Add time filter if specified (will override any existing date filters)
+    if (params.timeFilter) {
       if (params.timeFilter === 'today') {
         // Today = current calendar date (00:00 to 23:59)
-        const todayQuery = getTodayQuery();
-        fullQuery = fullQuery ? `${todayQuery} ${fullQuery}` : todayQuery;
+        const [startUnix, endUnix] = getLocalMidnightUnixRange(0);
+        finalQuery = `${userQuery} after:${startUnix} before:${endUnix}`.trim();
       } 
       else if (params.timeFilter === 'yesterday') {
         // Yesterday = previous calendar date (00:00 to 23:59)
-        const yesterdayQuery = getYesterdayQuery();
-        fullQuery = fullQuery ? `${yesterdayQuery} ${fullQuery}` : yesterdayQuery;
+        const [startUnix, endUnix] = getLocalMidnightUnixRange(-1);
+        finalQuery = `${userQuery} after:${startUnix} before:${endUnix}`.trim();
       }
       else if (params.timeFilter === 'last24h') {
         // Last 24 hours = rolling 24 hour window
-        const dateQuery = `after:${getDateQuery(24)}`;
-        fullQuery = fullQuery ? `${dateQuery} ${fullQuery}` : dateQuery;
+        const nowSec = Math.floor(Date.now() / 1000);
+        const startSec = nowSec - 24 * 3600;
+        finalQuery = `${userQuery} after:${startSec}`.trim();
       }
     }
     
+    // Send the query with Unix timestamps to Gmail API
     const result = await client.listMessages({
       pageSize: params.maxResults || 25,
       pageToken: params.pageToken,
-      query: fullQuery,
+      query: finalQuery,
       category: params.category,
       autoFetchAll: params.autoFetchAll || false
     });
@@ -131,11 +159,9 @@ export const searchEmailsTool: Tool = {
           noResultsMessage += ` in the last 24 hours`;
         }
         
-        if (fullQuery !== getTodayQuery() && fullQuery !== getYesterdayQuery()) {
-          noResultsMessage += ` with query: ${fullQuery}`;
-        }
+        noResultsMessage += ` with query: ${finalQuery}`;
       } else {
-        noResultsMessage += ` query: ${fullQuery}`;
+        noResultsMessage += ` query: ${finalQuery}`;
       }
       
       if (params.category) {
@@ -146,7 +172,7 @@ export const searchEmailsTool: Tool = {
     }
     
     // Check if query contains 'label:unread' to highlight unread status in response
-    const isUnreadSearch = fullQuery.includes('label:unread');
+    const isUnreadSearch = finalQuery.includes('label:unread');
     
     const emails = result.items.map(email => ({
       messageId: email.messageId,
@@ -179,7 +205,7 @@ export const searchEmailsTool: Tool = {
       emails: emails,
       nextPageToken: result.nextPageToken,
       resultSizeEstimate: result.resultSizeEstimate,
-      query: fullQuery,
+      query: finalQuery,
       timeFilter: params.timeFilter,
       category: params.category,
       isUnreadSearch: isUnreadSearch,
@@ -237,49 +263,57 @@ export const getRecentEmailsTool: Tool = {
     autoFetchAll?: boolean;
   }) => {
     // Start with empty query or user-provided query
-    let fullQuery = params.query || '';
+    let userQuery = params.query || '';
     
     // Apply correct unread syntax
-    fullQuery = ensureCorrectUnreadSyntax(fullQuery);
+    userQuery = ensureCorrectUnreadSyntax(userQuery);
     
-    // Handle predefined time filters (today, yesterday, last24h)
+    // Transform date-based operators to Unix timestamps
+    userQuery = transformDateBasedOperators(userQuery);
+    
+    // Start with the transformed user query
+    let finalQuery = userQuery;
+    
+    // Handle predefined time filters using Unix timestamps
     if (params.timeFilter) {
       if (params.timeFilter === 'today') {
         // Today = current calendar date (00:00 to 23:59)
-        const todayQuery = getTodayQuery();
-        fullQuery = fullQuery ? `${todayQuery} ${fullQuery}` : todayQuery;
+        const [startUnix, endUnix] = getLocalMidnightUnixRange(0);
+        finalQuery = `${userQuery} after:${startUnix} before:${endUnix}`.trim();
       } 
       else if (params.timeFilter === 'yesterday') {
         // Yesterday = previous calendar date (00:00 to 23:59)
-        const yesterdayQuery = getYesterdayQuery();
-        fullQuery = fullQuery ? `${yesterdayQuery} ${fullQuery}` : yesterdayQuery;
+        const [startUnix, endUnix] = getLocalMidnightUnixRange(-1);
+        finalQuery = `${userQuery} after:${startUnix} before:${endUnix}`.trim();
       }
       else if (params.timeFilter === 'last24h') {
         // Last 24 hours = rolling 24 hour window
-        const dateQuery = `after:${getDateQuery(24)}`;
-        fullQuery = fullQuery ? `${dateQuery} ${fullQuery}` : dateQuery;
+        const nowSec = Math.floor(Date.now() / 1000);
+        const startSec = nowSec - 24 * 3600;
+        finalQuery = `${userQuery} after:${startSec}`.trim();
       }
     } 
-    // Check for explicit date filters in query
-    else if (fullQuery.includes('after:') || fullQuery.includes('before:') || 
-            fullQuery.includes('newer_than:') || fullQuery.includes('older_than:')) {
-      // Query already has date filters
+    // Check for explicit date filters in query - we don't need to add more filters
+    else if (finalQuery.includes('after:') || finalQuery.includes('before:') || 
+            finalQuery.includes('newer_than:') || finalQuery.includes('older_than:')) {
+      // Query already has date filters, do nothing
     }
     // Default to hours if provided
     else if (params.hours) {
-      const dateQuery = `after:${getDateQuery(params.hours)}`;
-      fullQuery = fullQuery ? `${dateQuery} ${fullQuery}` : dateQuery;
+      const nowSec = Math.floor(Date.now() / 1000);
+      const startSec = nowSec - params.hours * 3600;
+      finalQuery = `${finalQuery} after:${startSec}`.trim();
     }
     // If no time filter specified, default to today
     else {
-      const todayQuery = getTodayQuery();
-      fullQuery = fullQuery ? `${todayQuery} ${fullQuery}` : todayQuery;
+      const [startUnix, endUnix] = getLocalMidnightUnixRange(0);
+      finalQuery = `${finalQuery} after:${startUnix} before:${endUnix}`.trim();
     }
     
     const result = await client.listMessages({
       pageSize: params.maxResults || 25,
       pageToken: params.pageToken,
-      query: fullQuery,
+      query: finalQuery,
       category: params.category,
       autoFetchAll: params.autoFetchAll || false
     });
@@ -295,8 +329,8 @@ export const getRecentEmailsTool: Tool = {
         timeDescription = `the last 24 hours`;
       } else if (params.hours) {
         timeDescription = `the last ${params.hours} hours`;
-      } else if (fullQuery.includes('after:') || fullQuery.includes('before:')) {
-        timeDescription = `matching date filter: ${fullQuery}`;
+      } else if (finalQuery.includes('after:') || finalQuery.includes('before:')) {
+        timeDescription = `matching date filter: ${finalQuery}`;
       } else {
         timeDescription = `today (${getTodayDateQuery()})`;
       }
@@ -305,7 +339,7 @@ export const getRecentEmailsTool: Tool = {
       if (params.category) {
         noResultsMessage += ` in category ${params.category}`;
       }
-      if (fullQuery.includes('label:unread')) {
+      if (finalQuery.includes('label:unread')) {
         noResultsMessage += ` that are unread`;
       }
       
@@ -322,8 +356,8 @@ export const getRecentEmailsTool: Tool = {
       timeDescription = `the last 24 hours`;
     } else if (params.hours) {
       timeDescription = `the last ${params.hours} hours`;
-    } else if (fullQuery.includes('after:') || fullQuery.includes('before:')) {
-      timeDescription = `matching date filter: ${fullQuery}`;
+    } else if (finalQuery.includes('after:') || finalQuery.includes('before:')) {
+      timeDescription = `matching date filter: ${finalQuery}`;
     } else {
       timeDescription = `today (${getTodayDateQuery()})`;
     }
@@ -361,7 +395,7 @@ export const getRecentEmailsTool: Tool = {
       timeDescription: timeDescription,
       nextPageToken: result.nextPageToken,
       resultSizeEstimate: result.resultSizeEstimate,
-      query: fullQuery,
+      query: finalQuery,
       category: params.category,
       paginationHelp: paginationMessage,
       categoryHelp: categoryMessage

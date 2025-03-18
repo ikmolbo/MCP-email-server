@@ -90,4 +90,34 @@ export function formatTimestampWithOffset(timestamp: string, offsetHours: number
     // If parsing fails, return the raw timestamp
     return timestamp;
   }
+}
+
+/**
+ * Converts a string of the form "YYYY/MM/DD" into a Unix timestamp (in seconds)
+ * interpreting the date as 00:00 local time.
+ * Example: "2025/03/19" -> local midnight -> compute .getTime()/1000
+ */
+export function transformDateStringToLocalUnix(dateStr: string): number {
+  // Parse e.g. "2025/03/19"
+  const [year, month, day] = dateStr.split("/").map(x => parseInt(x, 10));
+  const d = getCurrentDateInTimeZone(); // local 'now'
+  d.setFullYear(year, month - 1, day);
+  d.setHours(0, 0, 0, 0);
+  // Convert to Unix seconds
+  return Math.floor(d.getTime() / 1000);
+}
+
+/**
+ * Returns [startUnix, endUnix] for the local day (midnight -> +24h).
+ * dayOffset=0 => today, -1 => yesterday, etc.
+ */
+export function getLocalMidnightUnixRange(dayOffset: number = 0): [number, number] {
+  const nowLocal = getCurrentDateInTimeZone();
+  nowLocal.setDate(nowLocal.getDate() + dayOffset);
+  nowLocal.setHours(0, 0, 0, 0);
+
+  const startMs = nowLocal.getTime();
+  const startUnix = Math.floor(startMs / 1000);
+  const endUnix = startUnix + 24 * 3600;
+  return [startUnix, endUnix];
 } 

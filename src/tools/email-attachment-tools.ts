@@ -20,18 +20,18 @@ if (!DEFAULT_ATTACHMENTS_FOLDER) {
 }
 
 /**
- * Schema pentru listarea atașamentelor unui email
+ * Schema for listing attachments from an email
  */
 const ListAttachmentsSchema = z.object({
-  messageId: z.string().describe("ID-ul mesajului pentru care se listează atașamentele"),
+  messageId: z.string().describe("ID of the message for which attachments are listed"),
 });
 
 /**
- * Schema pentru salvarea unui atașament în sistemul de fișiere
+ * Schema for saving an attachment to the file system
  */
 const SaveAttachmentSchema = z.object({
-  messageId: z.string().describe("ID-ul mesajului care conține atașamentul"),
-  attachmentId: z.string().describe("ID-ul atașamentului (opțional dacă mesajul are un singur atașament)"),
+  messageId: z.string().describe("ID of the message containing the attachment"),
+  attachmentId: z.string().describe("ID of the attachment (optional if the message has only one attachment)"),
   targetPath: z.string().describe("Filename or relative path where the attachment will be saved (will be created inside the DEFAULT_ATTACHMENTS_FOLDER)"),
 });
 
@@ -89,17 +89,17 @@ async function writeFileToDisk(filePath: string, content: string, contentType: s
 }
 
 /**
- * Tool pentru listarea atașamentelor unui email
+ * Tool for listing attachments from an email
  */
 export const listAttachmentsTool: Tool = {
   name: "list_attachments",
-  description: "Listează toate atașamentele dintr-un email",
+  description: "List all attachments from an email",
   inputSchema: {
     type: "object",
     properties: {
       messageId: {
         type: "string",
-        description: "ID-ul mesajului pentru care se listează atașamentele"
+        description: "ID of the message for which attachments are listed"
       }
     },
     required: ["messageId"]
@@ -108,7 +108,7 @@ export const listAttachmentsTool: Tool = {
     try {
       const attachments = await client.listAttachments(params.messageId);
       
-      // Adăugăm un log de debug pentru a vedea attachment IDs
+      // Add a debug log to see attachment IDs
       console.error(`Attachments found for message ${params.messageId}: ${attachments.length}`);
       for (const att of attachments) {
         console.error(`Attachment: ${att.filename}, ID: ${att.id}, Size: ${att.size}, Type: ${att.mimeType}`);

@@ -71,13 +71,6 @@ Format: [text/html]
 
 ATTACHMENTS
 [list of attachments with details]
-----------------------------------------
-
-This detailed information helps:
-- Understand the complete context of the email
-- Track its state in your inbox
-- See its relationship with other emails
-- Make informed decisions about replies or actions
     `,
     parameters: ["messageId"],
     required_output: [

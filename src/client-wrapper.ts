@@ -1,6 +1,5 @@
 import { gmail_v1, google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
-import { GaxiosResponse } from 'gaxios';
 import { encodeEmailSubject } from './utils.js';
 import { timeZoneOffset, formatTimestampWithOffset } from './timezone-utils.js';
 
@@ -129,17 +128,17 @@ export class GmailClientWrapper {
 
       console.error('Final query:', query); // Debug log
 
-      // Inițializăm răspunsul final pentru cazul paginării automate
+      // Initialize the final response for the automatic pagination case
       let allItems: EmailData[] = [];
       let finalNextPageToken: string | undefined = undefined;
       let totalResultSizeEstimate = 0;
       let currentPageToken = options.pageToken;
       
-      // Stabilim dimensiunea paginii și limita maximă pentru paginarea automată
-      const pageSize = options.pageSize || 25; // Implicit aducem 25 de rezultate
-      const maxAutoFetchResults = options.maxAutoFetchResults || 100; // Limită maximă de 100 email-uri
+      // Set the page size and maximum limit for automatic pagination
+      const pageSize = options.pageSize || 25; // Default fetch 25 results
+      const maxAutoFetchResults = options.maxAutoFetchResults || 100; // Maximum limit of 100 emails
       
-      // Bucla pentru paginare automată
+      // The loop for automatic pagination
       do {
         const response = await this.gmail.users.messages.list({
           userId: this.userId,
@@ -151,22 +150,22 @@ export class GmailClientWrapper {
         
         const messages = response.data.messages || [];
         
-        // Folosim getMessage care are implementată ajustarea fusului orar
+        // Use getMessage which has implemented timezone adjustment
         const messageDetails = await Promise.all(
           messages.map(msg => this.getMessage(msg.id!))
         );
         
-        // Adăugăm rezultatele la lista completă
+        // Add the results to the complete list
         allItems = [...allItems, ...messageDetails];
         
-        // Actualizăm token-ul pentru următoarea pagină
+        // Update the token for the next page
         currentPageToken = response.data.nextPageToken || undefined;
         finalNextPageToken = currentPageToken;
         
-        // Actualizăm estimarea totală a rezultatelor
+        // Update the total result size estimate
         totalResultSizeEstimate = response.data.resultSizeEstimate || allItems.length;
         
-        // Verificăm condițiile de oprire pentru paginarea automată
+        // Check the stopping conditions for automatic pagination
         if (!options.autoFetchAll || allItems.length >= maxAutoFetchResults || !currentPageToken) {
           break;
         }
@@ -223,7 +222,7 @@ export class GmailClientWrapper {
         try {
           // Parse the date header and apply timezone offset
           const dateObj = new Date(dateHeader);
-          // Folosim funcția formatTimestampWithOffset pentru a aplica offsetul
+          // Use the formatTimestampWithOffset function to apply the offset
           timestamp = formatTimestampWithOffset(dateHeader);
         } catch (e) {
           console.error('Error parsing date header:', e);
@@ -269,7 +268,7 @@ export class GmailClientWrapper {
   }
 
   /**
-   * Obține alias-ul send-as implicit (default) configurat în Gmail
+   * Get the default send-as alias (default) configured in Gmail
    */
   async getDefaultSendAsAlias(): Promise<gmail_v1.Schema$SendAs | undefined> {
     try {
@@ -281,26 +280,25 @@ export class GmailClientWrapper {
   }
 
   /**
-   * Determină adresa corectă pentru răspuns bazată pe adresele din emailul original
-   * @param originalEmail - Emailul la care se răspunde
-   * @param fromAddressOverride - Adresa specificată manual (are prioritate)
+   * Determine the correct reply address based on the addresses in the original email
+   * @param originalEmail - The email to which we are replying
+   * @param fromAddressOverride - The manually specified address (has priority)
    */
   async determineReplyFromAddress(
     originalEmail: EmailData,
     fromAddressOverride?: string
   ): Promise<string | undefined> {
-    // Dacă s-a specificat manual o adresă, o folosim pe aceasta
+    // If a manually specified address is provided, use it
     if (fromAddressOverride) {
       return fromAddressOverride;
     }
 
     try {
-      // Obține toate adresele send-as disponibile
+      // Get all available send-as aliases
       const aliases = await this.getSendAsAliases();
       let fromAddress: string | undefined;
       
-      // Mai întâi verificăm dacă vreuna dintre adresele noastre se potrivește cu 
-      // destinatarii emailului original (To sau CC)
+      // First check if any of our addresses match the original email's recipients (To or CC)
       if (originalEmail.to && originalEmail.to.length > 0) {
         for (const toAddress of originalEmail.to) {
           const toEmail = this.extractEmailAddress(toAddress);
@@ -318,7 +316,7 @@ export class GmailClientWrapper {
         }
       }
       
-      // Verificăm și în adresele CC dacă nu am găsit o potrivire în To
+      // Check also in the CC addresses if we didn't find a match in To
       if (!fromAddress && originalEmail.cc && originalEmail.cc.length > 0) {
         for (const ccAddress of originalEmail.cc) {
           const ccEmail = this.extractEmailAddress(ccAddress);
@@ -336,7 +334,7 @@ export class GmailClientWrapper {
         }
       }
       
-      // Dacă nu am găsit o adresă potrivită, folosim adresa implicită
+      // If we didn't find a suitable address, use the default address
       if (!fromAddress) {
         const defaultAlias = aliases.find(alias => alias.isDefault === true);
         if (defaultAlias && defaultAlias.sendAsEmail) {
@@ -354,7 +352,7 @@ export class GmailClientWrapper {
   }
   
   /**
-   * Extrage adresa de email din formatul "Nume <email@example.com>"
+   * Extract the email address from the format "Name <email@example.com>"
    */
   extractEmailAddress(address: string): string {
     const match = address.match(/<([^>]+)>/);
@@ -362,8 +360,8 @@ export class GmailClientWrapper {
   }
   
   /**
-   * Exclude adresele proprii din lista de destinatari
-   * @param recipients - Lista de destinatari
+   * Exclude own addresses from the recipient list
+   * @param recipients - The recipient list
    */
   async filterOutOwnAddresses(recipients: string[]): Promise<string[]> {
     try {
@@ -454,15 +452,15 @@ export class GmailClientWrapper {
   }
 
   /**
-   * Codifică conținutul e-mailului pentru a gestiona corect caracterele UTF-8
-   * @param content Conținutul original al e-mailului
-   * @returns Conținutul codificat în format UTF-8
+   * Encode the email content to handle UTF-8 characters correctly
+   * @param content The original email content
+   * @returns The encoded content in UTF-8 format
    */
   private encodeEmailContent(content: string): string {
-    // Verificăm dacă conținutul are caractere non-ASCII
+    // Check if the content has non-ASCII characters
     if (!/^[\x00-\x7F]*$/.test(content)) {
-      // Asigurăm că Content-Transfer-Encoding este setat corect
-      // și că toate caracterele UTF-8 sunt păstrate intacte
+      // Ensure Content-Transfer-Encoding is set correctly
+      // and all UTF-8 characters are kept intact
       return content;
     }
     return content;
@@ -492,7 +490,7 @@ export class GmailClientWrapper {
       'MIME-Version: 1.0',
     ].filter(Boolean).join('\r\n');
 
-    // Codificăm tot conținutul email-ului cu Base64 pentru a gestiona corect caracterele UTF-8
+    // Encode the entire email content with Base64 to handle UTF-8 characters correctly
     const encodedEmailContent = Buffer.from(encodedContent).toString('base64');
     const email = `${headers}\r\n\r\n${encodedEmailContent}`;
     
@@ -848,7 +846,7 @@ export class GmailClientWrapper {
     try {
       console.error(`Attempting to get attachment: messageId=${messageId}, attachmentId=${attachmentId}`);
       
-      // Mai întâi verificăm dacă atașamentul există în mesaj
+      // First check if the attachment exists in the message
       const message = await this.gmail.users.messages.get({
         userId: this.userId,
         id: messageId,
@@ -859,7 +857,7 @@ export class GmailClientWrapper {
         throw new Error('Message not found or has no payload');
       }
 
-      // Funcție recursivă pentru a găsi partea atașamentului
+      // Recursive function to find the attachment part
       const findAttachmentPart = (parts: gmail_v1.Schema$MessagePart[] | undefined, id: string): gmail_v1.Schema$MessagePart | null => {
         if (!parts) return null;
         
@@ -868,13 +866,13 @@ export class GmailClientWrapper {
             return part;
           }
           
-          // Dacă acest ID nu se potrivește dar partea are un filename, poate este un atașament
-          // dar cu un ID diferit. În acest caz, vom afișa ID-ul din această parte pentru comparație
+          // If this ID doesn't match but the part has a filename, it might be an attachment
+          // with a different ID. In this case, we'll display the ID from this part for comparison
           if (part.filename && part.filename.trim() !== '' && part.body?.attachmentId) {
             console.error(`Found attachment with filename "${part.filename}" and ID "${part.body.attachmentId}"`);
           }
           
-          // Căutăm recursiv în subpărți
+          // Recursively search in subparts
           if (part.parts) {
             const found = findAttachmentPart(part.parts, id);
             if (found) return found;
@@ -883,14 +881,14 @@ export class GmailClientWrapper {
         return null;
       };
 
-      // Căutăm partea atașamentului
+      // Search for the attachment part
       const attachmentPart = findAttachmentPart(message.data.payload.parts, attachmentId);
 
-      // Dacă nu găsim atașamentul cu ID-ul furnizat, vom încerca să folosim un atașament disponibil (dacă există)
+      // If we don't find the attachment with the provided ID, we'll try to use an available attachment (if it exists)
       if (!attachmentPart) {
         console.error(`Attachment part with ID "${attachmentId}" not found. Looking for available attachments...`);
         
-        // Găsim toate atașamentele disponibile
+        // Find all available attachments
         let availableAttachmentPart: gmail_v1.Schema$MessagePart | null = null;
         const findAnyAttachment = (parts: gmail_v1.Schema$MessagePart[] | undefined): gmail_v1.Schema$MessagePart | null => {
           if (!parts) return null;
@@ -912,7 +910,7 @@ export class GmailClientWrapper {
         
         if (availableAttachmentPart) {
           console.error(`Using available attachment with filename "${availableAttachmentPart.filename}" and ID "${availableAttachmentPart.body?.attachmentId}"`);
-          // Înlocuim ID-ul atașamentului cu cel găsit
+          // Replace the attachment ID with the found one
           attachmentId = availableAttachmentPart.body?.attachmentId || '';
         } else {
           throw new Error('No attachment found in this message');
@@ -921,7 +919,7 @@ export class GmailClientWrapper {
         console.error(`Found attachment part with filename "${attachmentPart.filename}" and ID "${attachmentPart.body?.attachmentId}"`);
       }
 
-      // Acum facem cererea pentru a obține conținutul atașamentului folosind ID-ul validat
+      // Now make the request to get the attachment content using the validated ID
       const response = await this.gmail.users.messages.attachments.get({
         userId: this.userId,
         messageId,
@@ -932,7 +930,7 @@ export class GmailClientWrapper {
         throw new Error('Attachment data not found in API response');
       }
       
-      // Folosim din nou atașamentul găsit (sau cel înlocuit)
+      // Use the found (or replaced) attachment again
       const finalAttachmentPart = findAttachmentPart(message.data.payload.parts, attachmentId);
       
       if (!finalAttachmentPart) {

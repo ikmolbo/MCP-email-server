@@ -20,18 +20,18 @@ export interface EmailOptions {
 }
 
 /**
- * Codifică subiectul e-mailului conform RFC 2047 pentru a gestiona corect caracterele non-ASCII
- * @param subject Subiectul original al e-mailului
- * @returns Subiectul codificat pentru a fi compatibil cu headerele e-mailului
+ * Encode the email subject according to RFC 2047 to handle non-ASCII characters correctly
+ * @param subject The original email subject
+ * @returns The encoded subject for compatibility with email headers
  */
 export function encodeEmailSubject(subject: string): string {
-  // Verifică dacă subiectul conține caractere non-ASCII
+  // Check if the subject contains non-ASCII characters
   if (!/^[\x00-\x7F]*$/.test(subject)) {
-    // Codifică subiectul ca Base64 conform RFC 2047
+    // Encode the subject as Base64 according to RFC 2047
     const encodedSubject = Buffer.from(subject).toString('base64');
     return `=?UTF-8?B?${encodedSubject}?=`;
   }
-  // Returnează subiectul neschimbat dacă conține doar ASCII
+  // Return the subject unchanged if it contains only ASCII characters
   return subject;
 }
 

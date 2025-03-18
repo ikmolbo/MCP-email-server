@@ -32,7 +32,6 @@ import {
   ensureCorrectUnreadSyntax,
   formatTimestamp
 } from './utils.js';
-import { authenticate as googleAuthenticate } from '@google-cloud/local-auth';
 import { dirname } from 'path';
 import { startServer } from './server.js';
 import { GmailClientWrapper, EmailData } from './client-wrapper.js';

@@ -3,10 +3,10 @@ import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { GmailClientWrapper } from "../client-wrapper.js";
 
 /**
- * Schema pentru crearea unei ciorne de email
+  * Schema for creating an email draft
  */
 const CreateDraftSchema = z.object({
-  to: z.array(z.string()).describe("Lista adreselor de email ale destinatarilor"),
+  to: z.array(z.string()).describe("List of email addresses of recipients"),
   subject: z.string().describe("Subiectul email-ului"),
   body: z.string().describe("Conținutul email-ului"),
   cc: z.array(z.string()).optional().describe("Lista destinatarilor în CC"),
@@ -15,83 +15,83 @@ const CreateDraftSchema = z.object({
 });
 
 /**
- * Schema pentru obținerea unei ciorne
+ * Schema for getting a draft
  */
 const GetDraftSchema = z.object({
-  draftId: z.string().describe("ID-ul ciornei care trebuie obținută"),
+  draftId: z.string().describe("ID of the draft to get"),
 });
 
 /**
- * Schema pentru listarea ciornelor
+ * Schema for listing drafts
  */
 const ListDraftsSchema = z.object({
-  maxResults: z.number().optional().default(20).describe("Numărul maxim de ciorne de returnat"),
-  pageToken: z.string().optional().describe("Token-ul pentru pagina următoare de rezultate"),
-  query: z.string().optional().describe("Filtru de căutare pentru ciorne"),
+  maxResults: z.number().optional().default(20).describe("Number of drafts to return"),
+  pageToken: z.string().optional().describe("Token for the next page of results"),
+  query: z.string().optional().describe("Search filter for drafts"),
 });
 
 /**
- * Schema pentru actualizarea unei ciorne
+ * Schema for updating a draft
  */
 const UpdateDraftSchema = z.object({
-  draftId: z.string().describe("ID-ul ciornei care trebuie actualizată"),
-  to: z.array(z.string()).describe("Lista adreselor de email ale destinatarilor"),
-  subject: z.string().describe("Subiectul email-ului"),
-  body: z.string().describe("Conținutul email-ului"),
-  cc: z.array(z.string()).optional().describe("Lista destinatarilor în CC"),
-  bcc: z.array(z.string()).optional().describe("Lista destinatarilor în BCC"),
-  from: z.string().optional().describe("Adresa specifică de la care se trimite email-ul"),
+  draftId: z.string().describe("ID of the draft to update"),
+  to: z.array(z.string()).describe("List of email addresses of recipients"),
+  subject: z.string().describe("Email subject"),
+  body: z.string().describe("Email body"),
+  cc: z.array(z.string()).optional().describe("List of CC recipients"),
+  bcc: z.array(z.string()).optional().describe("List of BCC recipients"),
+  from: z.string().optional().describe("Specific email address of the sender"),
 });
 
 /**
- * Schema pentru ștergerea unei ciorne
+ * Schema for deleting a draft
  */
 const DeleteDraftSchema = z.object({
-  draftId: z.string().describe("ID-ul ciornei care trebuie ștearsă"),
+  draftId: z.string().describe("ID of the draft to delete"),
 });
 
 /**
- * Schema pentru trimiterea unei ciorne
+ * Schema for sending a draft
  */
 const SendDraftSchema = z.object({
-  draftId: z.string().describe("ID-ul ciornei care trebuie trimisă"),
+  draftId: z.string().describe("ID of the draft to send"),
 });
 
 /**
- * Tool pentru crearea unei ciorne
+ * Tool for creating a draft
  */
 export const createDraftTool: Tool = {
   name: "create_draft",
-  description: "Creează o ciornă nouă pentru un email",
+  description: "Create a new draft for an email",
   inputSchema: {
     type: "object",
     properties: {
       to: {
         type: "array",
         items: { type: "string" },
-        description: "Lista adreselor de email ale destinatarilor"
+        description: "List of email addresses of recipients"
       },
       subject: {
         type: "string",
-        description: "Subiectul email-ului"
+        description: "Email subject"
       },
       body: {
         type: "string",
-        description: "Conținutul email-ului"
+        description: "Email body"
       },
       cc: {
         type: "array",
         items: { type: "string" },
-        description: "Lista destinatarilor în CC"
+        description: "List of CC recipients"
       },
       bcc: {
         type: "array",
         items: { type: "string" },
-        description: "Lista destinatarilor în BCC"
+        description: "List of BCC recipients"
       },
       from: {
         type: "string",
-        description: "Adresa specifică de la care se trimite email-ul"
+        description: "Specific email address of the sender"
       }
     },
     required: ["to", "subject", "body"]
@@ -128,17 +128,17 @@ export const createDraftTool: Tool = {
 };
 
 /**
- * Tool pentru obținerea unei ciorne
+ * Tool for getting a draft
  */
 export const getDraftTool: Tool = {
   name: "get_draft",
-  description: "Obține detaliile unei ciorne specifice",
+  description: "Get details of a specific draft",
   inputSchema: {
     type: "object",
     properties: {
       draftId: {
         type: "string",
-        description: "ID-ul ciornei care trebuie obținută"
+        description: "ID of the draft to get"
       }
     },
     required: ["draftId"]
@@ -163,26 +163,26 @@ export const getDraftTool: Tool = {
 };
 
 /**
- * Tool pentru listarea ciornelor
+ * Tool for listing drafts
  */
 export const listDraftsTool: Tool = {
   name: "list_drafts",
-  description: "Listează ciornele din contul de email",
+  description: "List drafts from the email account",
   inputSchema: {
     type: "object",
     properties: {
       maxResults: {
         type: "number",
-        description: "Numărul maxim de ciorne de returnat",
+        description: "Number of drafts to return",
         default: 20
       },
       pageToken: {
         type: "string",
-        description: "Token-ul pentru pagina următoare de rezultate"
+        description: "Token for the next page of results"
       },
       query: {
         type: "string",
-        description: "Filtru de căutare pentru ciorne"
+        description: "Search filter for drafts"
       }
     }
   },
@@ -216,44 +216,44 @@ export const listDraftsTool: Tool = {
 };
 
 /**
- * Tool pentru actualizarea unei ciorne
+ * Tool for updating a draft
  */
 export const updateDraftTool: Tool = {
   name: "update_draft",
-  description: "Actualizează conținutul unei ciorne existente",
+  description: "Update the content of an existing draft",
   inputSchema: {
     type: "object",
     properties: {
       draftId: {
         type: "string",
-        description: "ID-ul ciornei care trebuie actualizată"
+        description: "ID of the draft to update"
       },
       to: {
         type: "array",
         items: { type: "string" },
-        description: "Lista adreselor de email ale destinatarilor"
+        description: "List of email addresses of recipients"
       },
       subject: {
         type: "string",
-        description: "Subiectul email-ului"
+        description: "Email subject"
       },
       body: {
         type: "string",
-        description: "Conținutul email-ului"
+        description: "Email body"
       },
       cc: {
         type: "array",
         items: { type: "string" },
-        description: "Lista destinatarilor în CC"
+        description: "List of CC recipients"
       },
       bcc: {
         type: "array",
         items: { type: "string" },
-        description: "Lista destinatarilor în BCC"
+        description: "List of BCC recipients"
       },
       from: {
         type: "string",
-        description: "Adresa specifică de la care se trimite email-ul"
+        description: "Specific email address of the sender"
       }
     },
     required: ["draftId", "to", "subject", "body"]
@@ -291,17 +291,17 @@ export const updateDraftTool: Tool = {
 };
 
 /**
- * Tool pentru ștergerea unei ciorne
+ * Tool for deleting a draft
  */
 export const deleteDraftTool: Tool = {
   name: "delete_draft",
-  description: "Șterge permanent o ciornă",
+  description: "Permanently delete a draft",
   inputSchema: {
     type: "object",
     properties: {
       draftId: {
         type: "string",
-        description: "ID-ul ciornei care trebuie ștearsă"
+        description: "ID of the draft to delete"
       }
     },
     required: ["draftId"]
@@ -321,17 +321,17 @@ export const deleteDraftTool: Tool = {
 };
 
 /**
- * Tool pentru trimiterea unei ciorne
+ * Tool for sending a draft
  */
 export const sendDraftTool: Tool = {
   name: "send_draft",
-  description: "Trimite un email salvat ca ciornă",
+  description: "Send a draft email",
   inputSchema: {
     type: "object",
     properties: {
       draftId: {
         type: "string",
-        description: "ID-ul ciornei care trebuie trimisă"
+        description: "ID of the draft to send"
       }
     },
     required: ["draftId"]

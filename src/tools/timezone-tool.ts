@@ -6,31 +6,31 @@ import {
 } from "../timezone-utils.js";
 
 /**
- * Tool simplu pentru a verifica configurația de fus orar a sistemului
- * Returnează informații despre:
- * - Fusul orar configurat (din variabila TIME_ZONE)
- * - Offsetul calculat în ore
- * - Data și ora curentă ajustată la fusul orar
- * - Data și ora în UTC pentru comparație
+ * Simple tool to check the timezone configuration of the system
+ * Returns information about:
+ * - The configured timezone (from the TIME_ZONE variable)
+ * - The calculated offset in hours
+ * - The current date and time adjusted to the timezone
+ * - The current date and time in UTC for comparison
  */
 export const getTimezoneInfoTool: Tool = {
   name: "get_timezone_info",
-  description: "Afișează informații despre fusul orar configurat în sistem",
+  description: "Display information about the configured timezone in the system",
   inputSchema: {
     type: "object",
     properties: {},
     required: []
   },
   handler: async () => {
-    // Obține data curentă
+    // Get the current date
     const now = new Date();
     const utcTime = now.toISOString();
     const localTime = getCurrentDateInTimeZone().toISOString();
     
-    // Formatează data curentă folosind funcția noastră
+    // Format the current date using our function
     const formattedTime = formatTimestampWithOffset(utcTime);
     
-    // Obține configurația fus orar
+    // Get the timezone configuration
     const timeZoneString = process.env.TIME_ZONE || 'GMT+0';
     
     return {
@@ -38,9 +38,9 @@ export const getTimezoneInfoTool: Tool = {
       offsetHours: timeZoneOffset,
       currentTimeLocal: formattedTime,
       currentTimeUTC: utcTime,
-      message: `Fusul orar configurat este ${timeZoneString} (offset: ${timeZoneOffset} ore). 
-                Ora curentă în acest fus orar este: ${formattedTime}. 
-                Ora curentă în UTC este: ${utcTime}.`
+      message: `The configured timezone is ${timeZoneString} (offset: ${timeZoneOffset} hours). 
+                The current time in this timezone is: ${formattedTime}. 
+                The current time in UTC is: ${utcTime}.`
     };
   }
 }; 

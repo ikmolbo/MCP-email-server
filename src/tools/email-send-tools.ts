@@ -73,12 +73,12 @@ export const sendEmailTool: Tool = {
     let references: string[] = [];
     let fromAddress: string | undefined = params.from;
     
-    // Dacă este un răspuns la un email existent, obținem detaliile acestuia
+    // If this is a reply to an existing email, get the details of it
     if (params.inReplyTo) {
-      // Obține detaliile emailului original
+      // Get the details of the original email
       const originalEmail = await client.getMessage(params.inReplyTo);
       
-      // Extrage referințele existente pentru threading corect
+      // Extract existing references for correct threading
       if (originalEmail.headers) {
         const existingRefs = originalEmail.headers.find(h => h.name?.toLowerCase() === 'references')?.value;
         const messageId = originalEmail.headers.find(h => h.name?.toLowerCase() === 'message-id')?.value;
@@ -91,12 +91,12 @@ export const sendEmailTool: Tool = {
         }
       }
       
-      // Determină adresa corectă de expeditor pentru răspuns
+      // Determine the correct sender address for the reply
       if (!fromAddress) {
         fromAddress = await client.determineReplyFromAddress(originalEmail);
       }
     } else if (!fromAddress) {
-      // Pentru email-uri noi (nu răspunsuri), folosim adresa implicită dacă nu s-a specificat una
+      // For new emails (not replies), use the default address if none was specified
       const defaultAlias = await client.getDefaultSendAsAlias();
       if (defaultAlias && defaultAlias.sendAsEmail) {
         fromAddress = defaultAlias.displayName ? 
@@ -105,11 +105,11 @@ export const sendEmailTool: Tool = {
       }
     }
     
-    // Filtrăm adresele proprii din destinatari
+    // Filter out own addresses from recipients
     const filteredTo = await client.filterOutOwnAddresses(params.to);
     const filteredCc = params.cc ? await client.filterOutOwnAddresses(params.cc) : undefined;
     
-    // Trimite mesajul cu parametrii actualizați
+    // Send the message with the updated parameters
     const result = await client.sendMessage({
       to: filteredTo,
       subject: params.subject,
@@ -190,39 +190,39 @@ export const replyAllEmailTool: Tool = {
     from?: string;
   }) => {
     try {
-      // Obține detaliile emailului original
+      // Get the details of the original email
       const originalEmail = await client.getMessage(params.messageId);
       
-      // Dacă nu există threadId, nu putem face un răspuns corect
+      // If there is no threadId, we cannot make a correct reply
       if (!originalEmail.threadId) {
         throw new Error("Cannot reply to message: no thread ID available");
       }
       
-      // Expeditorul original devine destinatarul principal
+      // The original sender becomes the primary recipient
       const originalSender = originalEmail.from;
       
-      // Combinăm toți destinatarii (To + CC din emailul original)
+      // Combine all recipients (To + CC from the original email)
       let allRecipients = [
         ...originalEmail.to, 
         ...(originalEmail.cc || [])
       ];
       
-      // Adăugăm orice destinatari suplimentari
+      // Add any additional recipients
       if (params.additionalRecipients && params.additionalRecipients.length > 0) {
         allRecipients = [...allRecipients, ...params.additionalRecipients];
       }
       
-      // Determinăm adresa corectă de expeditor (from) pentru răspuns
+      // Determine the correct sender address (from) for the reply
       let fromAddress = params.from;
       if (!fromAddress) {
         fromAddress = await client.determineReplyFromAddress(originalEmail);
       }
       
-      // Filtrăm destinatarii pentru a exclude adresele proprii și cele specificate manual
-      // folosind metoda filterOutOwnAddresses oferită de client
+      // Filter out own addresses and any manually specified exclusions
+      // using the filterOutOwnAddresses method provided by the client
       let filteredRecipients = await client.filterOutOwnAddresses(allRecipients);
       
-      // Aplicăm și excluderile explicite specificate de utilizator
+      // Apply any explicit exclusions specified by the user
       if (params.excludeRecipients && params.excludeRecipients.length > 0) {
         const excludeEmails = params.excludeRecipients.map(
           addr => client.extractEmailAddress(addr).toLowerCase()
@@ -234,7 +234,7 @@ export const replyAllEmailTool: Tool = {
         });
       }
       
-      // Expeditorul original merge în To, restul în CC
+      // The original sender goes in To, the rest in CC
       const to = [originalSender];
       const cc = filteredRecipients.filter(r => {
         const recipientEmail = client.extractEmailAddress(r).toLowerCase();
@@ -242,10 +242,10 @@ export const replyAllEmailTool: Tool = {
         return recipientEmail !== senderEmail;
       });
       
-      // Filtrăm și lista 'to' pentru a exclude adresele proprii
+      // Filter out own addresses from the To list
       const filteredTo = await client.filterOutOwnAddresses(to);
       
-      // Extrage referințele existente pentru threading corect
+      // Extract existing references for correct threading
       let references: string[] = [];
       if (originalEmail.headers) {
         const existingRefs = originalEmail.headers.find(h => h.name?.toLowerCase() === 'references')?.value;
@@ -259,13 +259,13 @@ export const replyAllEmailTool: Tool = {
         }
       }
       
-      // Pregătește subiectul cu prefixul "Re:" dacă nu există deja
+      // Prepare the subject with the "Re:" prefix if it doesn't already exist
       let subject = originalEmail.subject;
       if (!subject.toLowerCase().startsWith('re:')) {
         subject = `Re: ${subject}`;
       }
       
-      // Trimite răspunsul către toți
+      // Send the reply to all
       const result = await client.sendMessage({
         to: filteredTo,
         cc,
@@ -304,14 +304,14 @@ export const listSendAsAccountsTool: Tool = {
   },
   handler: async (client: GmailClientWrapper, params: {}) => {
     try {
-      // Obține toate adresele send-as disponibile
+      // Get all available send-as aliases
       const aliases = await client.getSendAsAliases();
       
-      // Identifică adresa implicită (default)
+      // Identify the default address (default)
       const defaultAlias = aliases.find(alias => alias.isDefault === true);
       const defaultEmail = defaultAlias?.sendAsEmail || '';
       
-      // Formatează rezultatul pentru afișare
+      // Format the result for display
       const formattedAliases = aliases.map(alias => {
         return {
           email: alias.sendAsEmail || '',
@@ -382,19 +382,19 @@ export const forwardEmailTool: Tool = {
     from?: string;
   }) => {
     try {
-      // Obține detaliile emailului original
+      // Get the details of the original email
       const originalEmail = await client.getMessage(params.messageId);
       
-      // Pregătește subiectul cu prefixul "Fwd:" dacă nu există deja
+      // Prepare the subject with the "Fwd:" prefix if it doesn't already exist
       let subject = originalEmail.subject;
       if (!subject.toLowerCase().startsWith('fwd:')) {
         subject = `Fwd: ${subject}`;
       }
       
-      // Determină adresa corectă de expeditor
+      // Determine the correct sender address
       let fromAddress = params.from;
       if (!fromAddress) {
-        // Pentru forward, în mod implicit folosim adresa default
+        // For forwarding, by default we use the default address
         const defaultAlias = await client.getDefaultSendAsAlias();
         if (defaultAlias && defaultAlias.sendAsEmail) {
           fromAddress = defaultAlias.displayName ? 
@@ -403,42 +403,42 @@ export const forwardEmailTool: Tool = {
         }
       }
       
-      // Pregătește conținutul email-ului forwarded
+      // Prepare the content of the forwarded email
       let content = '';
       
-      // Adaugă conținut suplimentar dacă există
+      // Add additional content if it exists
       if (params.additionalContent) {
         content += params.additionalContent + '\n\n';
       }
       
-      // Adaugă headerele email-ului original
+      // Add the original email headers
       content += '---------- Forwarded message ---------\n';
       content += `From: ${originalEmail.from}\n`;
       content += `Date: ${originalEmail.timestamp || 'Unknown'}\n`;
       content += `Subject: ${originalEmail.subject}\n`;
       content += `To: ${originalEmail.to.join(', ')}\n`;
       
-      // Adaugă headerul CC dacă există
+      // Add the CC header if it exists
       if (originalEmail.cc && originalEmail.cc.length > 0) {
         content += `Cc: ${originalEmail.cc.join(', ')}\n`;
       }
       
       content += '\n';
       
-      // Adaugă conținutul email-ului original
+      // Add the original email content
       content += originalEmail.content || '';
       
-      // Filtrăm adresele proprii din destinatari
+      // Filter out own addresses from recipients
       const filteredTo = await client.filterOutOwnAddresses(params.to);
       const filteredCc = params.cc ? await client.filterOutOwnAddresses(params.cc) : undefined;
       
-      // Trimite email-ul forwarded
+      // Send the forwarded email
       const result = await client.sendMessage({
         to: filteredTo,
         cc: filteredCc,
         subject,
         content,
-        // Adăugăm threadId de la emailul original pentru a menține conversația
+        // Add the original threadId to maintain the conversation
         threadId: originalEmail.threadId,
         from: fromAddress,
       });

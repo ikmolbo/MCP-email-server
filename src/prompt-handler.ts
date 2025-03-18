@@ -593,36 +593,37 @@ Drafts are useful when:
     name: "attachment_management",
     description: "Manage email attachments",
     template: `
-To manage email attachments, you have the following tools available:
+To manage email attachments, you can use the following tools:
 
 1. LIST_ATTACHMENTS
    Lists all attachments in an email.
    Required parameter:
-   - messageId: The ID of the message for which attachments are listed
+   - messageId: ID of the message for which to list attachments
    Result:
-   - A list of all attachments and their details (name, type, size)
+   - List of all attachments with their details (name, type, size)
 
 2. SAVE_ATTACHMENT
-   Saves an attachment from an email directly to the local file system.
+   Saves an attachment from an email directly to disk in the configured DEFAULT_ATTACHMENTS_FOLDER.
    Required parameters:
-   - messageId: The ID of the message containing the attachment
-   - targetPath: The path where the attachment will be saved
+   - messageId: ID of the message containing the attachment
+   - targetPath: Filename or relative path where the attachment will be saved (inside DEFAULT_ATTACHMENTS_FOLDER)
    Optional parameters:
-   - attachmentId: The ID of the attachment (if not specified, the first attachment will be used automatically)
+   - attachmentId: ID of the attachment (if not specified, will automatically use the first attachment)
    Result:
    - Information about the saved attachment and confirmation that the file was written to disk
 
 TYPICAL WORKFLOW:
-1. Retrieve an email using read_email or search_emails
+1. Get an email using read_email or search_emails
 2. List its attachments using list_attachments
 3. Save a specific attachment using save_attachment
 
 IMPORTANT NOTE:
-Save_attachment is the only approved method for managing attachments. It automatically handles:
+Save_attachment is the only approved method for handling attachments. It automatically manages:
 - Downloading the attachment
-- Converting from base64
+- Base64 conversion
 - Writing the file to disk
-- Verifying that the file was saved correctly
+- Verifying proper file saving
+- Security: All files are saved within the configured DEFAULT_ATTACHMENTS_FOLDER
 
 Example:
 1. Identify an email with attachments
@@ -637,45 +638,48 @@ Note: Attachments can be of different types: documents, images, archives, etc. T
 
   save_attachment: {
     name: "save_attachment",
-    description: "Save an attachment from an email to the local file system",
+    description: "Save an email attachment to the configured default attachments folder",
     template: `
-To save an attachment from an email to the local file system, follow these steps:
+To save an email attachment to the configured DEFAULT_ATTACHMENTS_FOLDER, follow these steps:
 
-1. Identify the email from which you want to download the attachment
+1. Identify the email with the attachment
    - Use search_emails or get_recent_emails to find the email
    - Note the message ID (messageId)
 
-2. List the available attachments
-   - Use list_attachments with messageId
-   - You will receive a list of all available attachments
-   - Optional: Note the attachment ID (attachmentId) of the attachment you want to save
-   - If there is only one attachment or you want the first one, you can omit attachmentId
+2. List available attachments
+   - Use list_attachments with the messageId
+   - You'll receive a list of all available attachments
+   - Optional: Note the attachment ID (attachmentId) you want to save
+   - If there's only one attachment or you want the first one, you can omit attachmentId
 
-3. Specify the save location
-   - Set the path where you want to save the attachment (targetPath)
-   - Ensure that you have write permissions in that location
+3. Specify the target path
+   - This can be just a filename or a relative path within the DEFAULT_ATTACHMENTS_FOLDER
+   - The file will always be saved within the configured DEFAULT_ATTACHMENTS_FOLDER
+   - Absolute paths outside this folder will automatically be redirected to DEFAULT_ATTACHMENTS_FOLDER
 
 4. Save the attachment
    - Use save_attachment with messageId and targetPath
    - Optional: Add attachmentId if you want a specific attachment
-   - The attachment will be saved directly to disk at the specified location
+   - The attachment will be saved directly to disk at the specified location within DEFAULT_ATTACHMENTS_FOLDER
 
 KEY FEATURES OF SAVE_ATTACHMENT:
-- Automatically handles the entire process, from obtaining the data to writing it to disk
-- Verifies the integrity of the file after saving
-- Creates necessary directories if they do not exist
+- Automatically manages the entire process from retrieving data to writing to disk
+- Verifies file integrity after saving
+- Creates necessary directories if they don't exist
 - Automatically selects the first attachment if no ID is specified
+- Security: Only allows saving files within the configured DEFAULT_ATTACHMENTS_FOLDER
 
 Example workflow:
 1. Find the email with search_emails
-2. Identify the available attachments with list_attachments
+2. Identify available attachments with list_attachments
 3. Execute save_attachment with messageId and targetPath to save the file
 
-Note: 
+Notes: 
 - For large files, the saving process may take longer
-- Always check the file type to ensure it is safe to save
-- If targetPath specifies only a directory, the original file name will be used
-- If targetPath includes the file name, it will be used instead of the original name
+- Always verify the file type to ensure it's safe to save
+- If targetPath only specifies a directory, the original filename will be used
+- If targetPath includes a filename, that will be used instead of the original name
+- All files are saved within the DEFAULT_ATTACHMENTS_FOLDER for security reasons
 `,
     parameters: ["messageId", "attachmentId", "targetPath"],
     required_output: ["success", "targetPath", "filename", "mimeType", "size"]

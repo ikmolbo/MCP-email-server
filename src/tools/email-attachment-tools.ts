@@ -4,6 +4,21 @@ import { GmailClientWrapper } from "../client-wrapper.js";
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Get default attachments folder from environment variable
+const DEFAULT_ATTACHMENTS_FOLDER = process.env.DEFAULT_ATTACHMENTS_FOLDER;
+
+// Validate the default attachments folder
+if (!DEFAULT_ATTACHMENTS_FOLDER) {
+  console.error(`ERROR: DEFAULT_ATTACHMENTS_FOLDER environment variable is not defined.`);
+  console.error(`Please define it in your MCP Config JSON with a path to an existing folder.`);
+  console.error(`Example: "/Users/username/CLAUDE/attachments"`);
+} else if (!fs.existsSync(DEFAULT_ATTACHMENTS_FOLDER)) {
+  console.error(`ERROR: DEFAULT_ATTACHMENTS_FOLDER path "${DEFAULT_ATTACHMENTS_FOLDER}" does not exist.`);
+  console.error(`Please create this directory or specify a different path in your MCP Config JSON.`);
+} else {
+  console.error(`Using DEFAULT_ATTACHMENTS_FOLDER: ${DEFAULT_ATTACHMENTS_FOLDER}`);
+}
+
 /**
  * Schema pentru listarea atașamentelor unui email
  */
@@ -17,8 +32,36 @@ const ListAttachmentsSchema = z.object({
 const SaveAttachmentSchema = z.object({
   messageId: z.string().describe("ID-ul mesajului care conține atașamentul"),
   attachmentId: z.string().describe("ID-ul atașamentului (opțional dacă mesajul are un singur atașament)"),
-  targetPath: z.string().describe("Calea unde va fi salvat atașamentul"),
+  targetPath: z.string().describe("Filename or relative path where the attachment will be saved (will be created inside the DEFAULT_ATTACHMENTS_FOLDER)"),
 });
+
+/**
+ * Validates if the target path is within the allowed DEFAULT_ATTACHMENTS_FOLDER
+ * and normalizes it to ensure proper security
+ */
+function validateAndNormalizePath(targetPath: string): string {
+  if (!DEFAULT_ATTACHMENTS_FOLDER) {
+    throw new Error("DEFAULT_ATTACHMENTS_FOLDER environment variable is not defined. Please configure it in MCP Config JSON.");
+  }
+
+  // Normalize the paths to handle any '..' or '.' segments
+  const normalizedTargetPath = path.normalize(targetPath);
+  
+  // Check if it's an absolute path or trying to escape with ../
+  if (path.isAbsolute(normalizedTargetPath) || normalizedTargetPath.includes('..')) {
+    // If absolute path, make sure it's within the allowed folder
+    if (normalizedTargetPath.startsWith(DEFAULT_ATTACHMENTS_FOLDER)) {
+      return normalizedTargetPath;
+    }
+    
+    // Otherwise, treat as a filename or relative path and join with default folder
+    const filename = path.basename(normalizedTargetPath);
+    return path.join(DEFAULT_ATTACHMENTS_FOLDER, filename);
+  }
+  
+  // For relative paths, simply join with the default folder
+  return path.join(DEFAULT_ATTACHMENTS_FOLDER, normalizedTargetPath);
+}
 
 /**
  * Funcție pentru a scrie un fișier pe disc
@@ -93,21 +136,21 @@ export const listAttachmentsTool: Tool = {
  */
 export const saveAttachmentTool: Tool = {
   name: "save_attachment",
-  description: "Salvează un atașament dintr-un email în sistemul de fișiere",
+  description: "Save an email attachment to the configured default attachments folder",
   inputSchema: {
     type: "object",
     properties: {
       messageId: {
         type: "string",
-        description: "ID-ul mesajului care conține atașamentul"
+        description: "ID of the message containing the attachment"
       },
       attachmentId: {
         type: "string",
-        description: "ID-ul atașamentului (opțional dacă mesajul are un singur atașament)"
+        description: "ID of the attachment (optional if the message has only one attachment)"
       },
       targetPath: {
         type: "string",
-        description: "Calea unde va fi salvat atașamentul"
+        description: "Filename or relative path where the attachment will be saved (will be created inside the DEFAULT_ATTACHMENTS_FOLDER)"
       }
     },
     required: ["messageId", "targetPath"]
@@ -118,86 +161,97 @@ export const saveAttachmentTool: Tool = {
     targetPath: string;
   }) => {
     try {
-      // Listăm mai întâi atașamentele pentru debugging
+      // First, verify that DEFAULT_ATTACHMENTS_FOLDER is defined
+      if (!DEFAULT_ATTACHMENTS_FOLDER) {
+        throw new Error(
+          "DEFAULT_ATTACHMENTS_FOLDER environment variable is not defined. " +
+          "Please add it to your MCP Config JSON with a path to an existing folder. " +
+          'Example: "/Users/username/CLAUDE/attachments"'
+        );
+      }
+      
+      // Validate and normalize the target path
+      const normalizedPath = validateAndNormalizePath(params.targetPath);
+      console.error(`Normalized path: ${normalizedPath} (original: ${params.targetPath})`);
+      
+      // List attachments for debugging
       const allAttachments = await client.listAttachments(params.messageId);
       console.error(`Available attachments for message ${params.messageId}: ${allAttachments.length}`);
       
       let attachmentId = params.attachmentId;
       
-      // Dacă nu avem un ID de atașament și există doar un atașament, îl folosim automat pe acela
+      // If no attachment ID is provided and there's only one attachment, use it automatically
       if (!attachmentId && allAttachments.length === 1) {
         attachmentId = allAttachments[0].id;
         console.error(`No attachment ID provided, but only one attachment found. Using ID: ${attachmentId}`);
       } 
-      // Dacă nu avem ID și există mai multe atașamente, folosim primul
+      // If no ID and multiple attachments, use the first one
       else if (!attachmentId && allAttachments.length > 1) {
         attachmentId = allAttachments[0].id;
         console.error(`No attachment ID provided, but multiple attachments found. Using first one with ID: ${attachmentId}`);
       }
-      // Dacă nu avem ID și nu există atașamente, aruncăm o eroare
+      // If no ID and no attachments, throw an error
       else if (!attachmentId && allAttachments.length === 0) {
         throw new Error('No attachments found in this message');
       }
       
       console.error(`Target attachment ID: ${attachmentId}`);
       
-      // Verificăm dacă ID-ul specificat (fie direct, fie selectat automat) există în lista de atașamente
+      // Check if the specified ID exists in the attachment list
       const attachmentExists = allAttachments.some(att => att.id === attachmentId);
       if (!attachmentExists) {
         console.error(`Warning: Specified attachment ID ${attachmentId} not found in attachment list. Available IDs: ${allAttachments.map(a => a.id).join(', ')}`);
       }
       
-      // Obținem atașamentul
+      // Get the attachment
       const attachment = await client.getAttachment(params.messageId, attachmentId!);
       console.error(`Retrieved attachment: ${attachment.filename}, Size: ${attachment.size} bytes, Type: ${attachment.mimeType}`);
       
-      // Verificăm dacă avem date în atașament
+      // Check if we have data in the attachment
       if (!attachment.data) {
         throw new Error('Attachment data is empty');
       }
       
-      // Construim calea completă a fișierului
-      const filePath = params.targetPath;
-      
-      // Scriem fișierul pe disc
+      // Write the file to disk
       const writeSuccess = await writeFileToDisk(
-        filePath, 
+        normalizedPath, 
         attachment.data, 
         attachment.mimeType
       );
       
       if (!writeSuccess) {
-        throw new Error(`Failed to write file to disk at ${filePath}`);
+        throw new Error(`Failed to write file to disk at ${normalizedPath}`);
       }
       
-      // Verificăm dacă fișierul există după scriere
-      if (!fs.existsSync(filePath)) {
-        throw new Error(`File was not created at ${filePath}`);
+      // Check if the file exists after writing
+      if (!fs.existsSync(normalizedPath)) {
+        throw new Error(`File was not created at ${normalizedPath}`);
       }
       
-      // Verificăm dimensiunea fișierului
-      const stats = fs.statSync(filePath);
+      // Check the file size
+      const stats = fs.statSync(normalizedPath);
       console.error(`File size on disk: ${stats.size} bytes`);
       
       if (stats.size === 0) {
-        throw new Error(`File was created but has zero bytes: ${filePath}`);
+        throw new Error(`File was created but has zero bytes: ${normalizedPath}`);
       }
       
-      // Returnăm rezultatul operațiunii
+      // Return the operation result
       return {
         messageId: params.messageId,
         attachmentId: attachmentId,
         filename: attachment.filename,
         mimeType: attachment.mimeType,
         size: attachment.size,
-        targetPath: filePath,
+        targetPath: normalizedPath,
+        relativePath: path.relative(DEFAULT_ATTACHMENTS_FOLDER, normalizedPath),
         actualFileSize: stats.size,
         success: true,
-        message: `Atașamentul "${attachment.filename}" (${stats.size} bytes) a fost salvat cu succes la "${filePath}".`
+        message: `Attachment "${attachment.filename}" (${stats.size} bytes) was successfully saved to "${normalizedPath}".`
       };
     } catch (error) {
       console.error(`Save attachment error details: ${error instanceof Error ? error.message : String(error)}`);
-      // Creăm un mesaj de eroare mai detaliat
+      // Create a more detailed error message
       throw new Error(`Failed to save attachment: ${error instanceof Error ? error.message : String(error)}`);
     }
   }

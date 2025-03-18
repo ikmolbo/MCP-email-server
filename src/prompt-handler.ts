@@ -320,7 +320,7 @@ The search will return:
 - Next page token if more results are available
     `,
     parameters: ["query", "category", "maxResults", "pageToken", "timeFilter", "autoFetchAll"],
-    required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInInbox", "received"]
+    required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInbox", "received"]
   },
 
   label_management: {
@@ -444,22 +444,22 @@ Label IDs for custom labels can be found using the list_labels tool.
 
   timezone_info: {
     name: "timezone_info",
-    description: "Verifică configurația de fus orar a sistemului",
+    description: "Check the system's time zone configuration",
     template: `
-Pentru a verifica configurația de fus orar a sistemului, poți folosi tool-ul get_timezone_info.
+To check the system's time zone configuration, you can use the get_timezone_info tool.
 
-Acest tool va returna următoarele informații:
-1. Fusul orar configurat (din variabila TIME_ZONE)
-2. Offsetul calculat în ore
-3. Data și ora curentă ajustată la fusul orar
-4. Data și ora în UTC pentru comparație
+This tool will return the following information:
+1. The configured time zone (from the TIME_ZONE variable)
+2. The offset calculated in hours
+3. The current date and time adjusted to the time zone
+4. The date and time in UTC for comparison
 
-Aceste informații te vor ajuta să înțelegi:
-- Ce fus orar este configurat în sistem
-- Cum sunt ajustate timestamp-urile emailurilor la acest fus orar
-- Diferența dintre ora UTC și ora locală
+This information will help you understand:
+- Which time zone is configured in the system
+- How the email timestamps are adjusted to this time zone
+- The difference between UTC time and local time
 
-Pentru a schimba fusul orar, configurația TIME_ZONE trebuie modificată la nivel de sistem.
+To change the time zone, the TIME_ZONE configuration must be modified at the system level.
     `,
     parameters: [],
     required_output: ["timeZoneConfig", "offsetHours", "currentTimeLocal", "currentTimeUTC"]
@@ -467,28 +467,28 @@ Pentru a schimba fusul orar, configurația TIME_ZONE trebuie modificată la nive
 
   send_as_accounts: {
     name: "send_as_accounts",
-    description: "Lista conturilor și adreselor de email care pot fi folosite pentru trimiterea email-urilor",
+    description: "List of accounts and email addresses that can be used for sending emails",
     template: `
-Pentru a gestiona email-urile trimise din diferite adrese, poți folosi tool-ul list_send_as_accounts.
+To manage emails sent from different addresses, you can use the list_send_as_accounts tool.
 
-Acest tool va lista toate conturile și adresele de email care pot fi folosite pentru trimiterea mesajelor, inclusiv:
-1. Adresa de email principală asociată cu contul Gmail
-2. Orice alias sau adresă alternativă configurată pentru "Send As"
-3. Indicarea adresei implicite (default) pentru trimiterea email-urilor
+This tool will list all accounts and email addresses that can be used for sending messages, including:
+1. The primary email address associated with the Gmail account
+2. Any alias or alternative address configured for "Send As"
+3. Indication of the default address for sending emails
 
-Informațiile returnate includ:
-- email: Adresa de email
-- name: Numele afișat pentru adresă
-- isDefault: Dacă este adresa implicită pentru trimiterea email-urilor
-- isPrimary: Dacă este adresa principală a contului
-- verificationStatus: Starea de verificare a adresei
+The returned information includes:
+- email: The email address
+- name: The display name for the address
+- isDefault: Whether it is the default address for sending emails
+- isPrimary: Whether it is the primary account address
+- verificationStatus: The verification status of the address
 
-Cum să folosești aceste informații:
-- În tool-ul send_email, poți specifica parametrul "from" cu una dintre aceste adrese
-- În tool-urile de reply și reply_all, adresa potrivită va fi selectată automat (adresa la care a fost trimis email-ul original)
-- Email-urile tale nu vor fi incluși în destinatari când folosești reply_all (evitarea auto-trimiterii)
+How to use this information:
+- In the send_email tool, you can specify the "from" parameter with one of these addresses
+- In the reply and reply_all tools, the appropriate address will be selected automatically (the address to which the original email was sent)
+- Your emails will not be included in the recipients when using reply_all (to avoid self-sending)
 
-IMPORTANT: Întotdeauna trimite de la adresa corectă în funcție de context! Dacă răspunzi la un email trimis la o anumită adresă, folosește acea adresă pentru răspuns.
+IMPORTANT: Always send from the correct address depending on the context! If you reply to an email sent to a specific address, use that address for the reply.
     `,
     parameters: [],
     required_output: ["accounts", "defaultAccount", "count"]
@@ -496,29 +496,29 @@ IMPORTANT: Întotdeauna trimite de la adresa corectă în funcție de context! D
 
   forward_email: {
     name: "forward_email",
-    description: "Redirecționează (forward) un email către alți destinatari",
+    description: "Forward an email to other recipients",
     template: `
-Pentru a redirecționa (forward) un email către alți destinatari, folosește tool-ul forward_email.
+To forward an email to other recipients, use the forward_email tool.
 
-Parametri necesari:
-1. messageId - ID-ul mesajului care va fi redirecționat
-2. to - Lista de destinatari care vor primi email-ul redirecționat
+Required parameters:
+1. messageId - The ID of the message to be forwarded
+2. to - The list of recipients who will receive the forwarded email
 
-Parametri opționali:
-- additionalContent - Conținut suplimentar pe care vrei să-l adaugi înainte de mesajul redirecționat
-- cc - Lista de destinatari CC
-- from - Adresa specifică de la care vrei să trimiți (din conturile tale send-as)
+Optional parameters:
+- additionalContent - Additional content that you want to add before the forwarded message
+- cc - List of CC recipients
+- from - The specific address from which you want to send (from your send-as accounts)
 
-Comportament:
-- Subiectul va fi prefixat automat cu "Fwd:" dacă nu are deja acest prefix
-- Conținutul va include headerele mesajului original (From, Date, Subject, To, Cc)
-- Destinatarii proprii sunt eliminați automat din liste pentru a evita auto-trimiterea
-- Dacă nu specifici o adresă "from", se va folosi adresa implicită din conturile tale
+Behavior:
+- The subject will be automatically prefixed with "Fwd:" if it does not already have that prefix
+- The content will include the original message headers (From, Date, Subject, To, Cc)
+- Your own addresses are automatically removed from the lists to avoid self-sending
+- If you do not specify a "from" address, the default address from your accounts will be used
 
-Exemplu de utilizare:
-"Vreau să redirecționez emailul cu ID-ul <message_id> către john@example.com și să adaug un comentariu înainte."
+Example usage:
+"I want to forward the email with ID <message_id> to john@example.com and add a comment beforehand."
 
-Notă: Email-ul redirecționat va conține tot conținutul original, inclusiv headerele și atașamentele.
+Note: The forwarded email will contain all the original content, including headers and attachments.
     `,
     parameters: ["messageId", "to", "additionalContent", "cc", "from"],
     required_output: ["messageId", "threadId", "to", "subject", "from"]
@@ -526,64 +526,64 @@ Notă: Email-ul redirecționat va conține tot conținutul original, inclusiv he
 
   draft_management: {
     name: "draft_management",
-    description: "Gestionează ciornele (drafts) din contul de email",
+    description: "Manage drafts in the email account",
     template: `
-Pentru a gestiona ciornele de email, ai la dispoziție următoarele tool-uri:
+To manage email drafts, you have the following tools available:
 
 1. CREATE_DRAFT
-   Creează o ciornă nouă pentru un email.
-   Parametri necesari:
-   - to: Lista de destinatari
-   - subject: Subiectul emailului
-   - body: Conținutul emailului
-   Parametri opționali:
-   - cc: Destinatari în CC
-   - bcc: Destinatari în BCC
-   - from: Adresa de la care trimiți
+   Creates a new draft for an email.
+   Required parameters:
+   - to: List of recipients
+   - subject: The email's subject
+   - body: The email's content
+   Optional parameters:
+   - cc: CC recipients
+   - bcc: BCC recipients
+   - from: The address from which you send
 
 2. GET_DRAFT
-   Obține detaliile unei ciorne existente.
-   Parametru necesar:
-   - draftId: ID-ul ciornei
+   Retrieves the details of an existing draft.
+   Required parameter:
+   - draftId: The draft's ID
 
 3. LIST_DRAFTS
-   Listează toate ciornele din cont.
-   Parametri opționali:
-   - maxResults: Numărul maxim de ciorne (implicit 20)
-   - pageToken: Token pentru pagina următoare
-   - query: Filtru de căutare
+   Lists all drafts in the account.
+   Optional parameters:
+   - maxResults: Maximum number of drafts (default 20)
+   - pageToken: Token for the next page
+   - query: Search filter
 
 4. UPDATE_DRAFT
-   Actualizează o ciornă existentă.
-   Parametri necesari:
-   - draftId: ID-ul ciornei
-   - to: Lista nouă de destinatari
-   - subject: Subiectul nou
-   - body: Conținutul nou
-   Parametri opționali:
-   - cc, bcc, from: Ca la create_draft
+   Updates an existing draft.
+   Required parameters:
+   - draftId: The draft's ID
+   - to: The new list of recipients
+   - subject: The new subject
+   - body: The new content
+   Optional parameters:
+   - cc, bcc, from: Same as in create_draft
 
 5. DELETE_DRAFT
-   Șterge permanent o ciornă.
-   Parametru necesar:
-   - draftId: ID-ul ciornei
+   Permanently deletes a draft.
+   Required parameter:
+   - draftId: The draft's ID
 
 6. SEND_DRAFT
-   Trimite o ciornă existentă.
-   Parametru necesar:
-   - draftId: ID-ul ciornei
+   Sends an existing draft.
+   Required parameter:
+   - draftId: The draft's ID
 
-FLUX TIPIC DE LUCRU:
-1. Creezi o ciornă cu create_draft
-2. Verifici ciorna cu get_draft sau list_drafts
-3. Actualizezi ciorna cu update_draft dacă este necesar
-4. Trimiți ciorna cu send_draft sau o ștergi cu delete_draft
+TYPICAL WORKFLOW:
+1. Create a draft with create_draft
+2. Check the draft with get_draft or list_drafts
+3. Update the draft with update_draft if necessary
+4. Send the draft with send_draft or delete it with delete_draft
 
-Ciornele sunt utile când:
-- Vrei să pregătești un email important înainte de a-l trimite
-- Trebuie să revii la un email mai târziu pentru a-l finaliza
-- Ai nevoie să salvezi un șablon de email pentru utilizare frecventă
-- Vrei să verifici conținutul înainte de a trimite
+Drafts are useful when:
+- You want to prepare an important email before sending it
+- You need to come back to an email later to finish it
+- You need to save an email template for frequent use
+- You want to review the content before sending
     `,
     parameters: [],
     required_output: ["operation", "draftId"]
@@ -591,45 +591,45 @@ Ciornele sunt utile când:
 
   attachment_management: {
     name: "attachment_management",
-    description: "Gestionează atașamentele email-urilor",
+    description: "Manage email attachments",
     template: `
-Pentru a gestiona atașamentele email-urilor, ai la dispoziție următoarele tool-uri:
+To manage email attachments, you have the following tools available:
 
 1. LIST_ATTACHMENTS
-   Listează toate atașamentele dintr-un email.
-   Parametru necesar:
-   - messageId: ID-ul mesajului pentru care se listează atașamentele
-   Rezultat:
-   - Lista cu toate atașamentele și detaliile lor (nume, tip, dimensiune)
+   Lists all attachments in an email.
+   Required parameter:
+   - messageId: The ID of the message for which attachments are listed
+   Result:
+   - A list of all attachments and their details (name, type, size)
 
 2. SAVE_ATTACHMENT
-   Salvează un atașament dintr-un email direct în sistemul de fișiere local.
-   Parametri necesari:
-   - messageId: ID-ul mesajului care conține atașamentul
-   - targetPath: Calea unde va fi salvat atașamentul
-   Parametri opționali:
-   - attachmentId: ID-ul atașamentului (dacă nu este specificat, se va folosi automat primul atașament)
-   Rezultat:
-   - Informații despre atașamentul salvat și confirmare că fișierul a fost scris pe disc
+   Saves an attachment from an email directly to the local file system.
+   Required parameters:
+   - messageId: The ID of the message containing the attachment
+   - targetPath: The path where the attachment will be saved
+   Optional parameters:
+   - attachmentId: The ID of the attachment (if not specified, the first attachment will be used automatically)
+   Result:
+   - Information about the saved attachment and confirmation that the file was written to disk
 
-FLUX TIPIC DE LUCRU:
-1. Obții un email folosind read_email sau search_emails
-2. Listezi atașamentele acestuia cu list_attachments
-3. Salvezi un atașament specific cu save_attachment
+TYPICAL WORKFLOW:
+1. Retrieve an email using read_email or search_emails
+2. List its attachments using list_attachments
+3. Save a specific attachment using save_attachment
 
-NOTĂ IMPORTANTĂ:
-Save_attachment este singura metodă aprobată pentru gestionarea atașamentelor. Aceasta gestionează automat:
-- Descărcarea atașamentului
-- Conversia din base64
-- Scrierea fișierului pe disc
-- Verificarea corectei salvări a fișierului
+IMPORTANT NOTE:
+Save_attachment is the only approved method for managing attachments. It automatically handles:
+- Downloading the attachment
+- Converting from base64
+- Writing the file to disk
+- Verifying that the file was saved correctly
 
-Exemplu:
-1. Identifică un email cu atașamente
-2. Listează atașamentele pentru a vedea ce conține emailul
-3. Salvează atașamentul dorit folosind save_attachment cu messageId și targetPath
+Example:
+1. Identify an email with attachments
+2. List the attachments to see what the email contains
+3. Save the desired attachment using save_attachment with messageId and targetPath
 
-Notă: Atașamentele pot fi de diferite tipuri: documente, imagini, arhive, etc. Tipul MIME al atașamentului îți indică formatul acestuia.
+Note: Attachments can be of different types: documents, images, archives, etc. The MIME type of the attachment indicates its format.
 `,
     parameters: ["messageId", "attachmentId"],
     required_output: ["operation", "messageId", "attachments"]
@@ -637,45 +637,45 @@ Notă: Atașamentele pot fi de diferite tipuri: documente, imagini, arhive, etc.
 
   save_attachment: {
     name: "save_attachment",
-    description: "Salvează un atașament din email în sistemul de fișiere local",
+    description: "Save an attachment from an email to the local file system",
     template: `
-Pentru a salva un atașament dintr-un email în sistemul de fișiere local, urmează acești pași:
+To save an attachment from an email to the local file system, follow these steps:
 
-1. Identifică emailul din care vrei să descarci atașamentul
-   - Folosește search_emails sau get_recent_emails pentru a găsi emailul
-   - Notează ID-ul mesajului (messageId)
+1. Identify the email from which you want to download the attachment
+   - Use search_emails or get_recent_emails to find the email
+   - Note the message ID (messageId)
 
-2. Listează atașamentele disponibile
-   - Folosește list_attachments cu messageId
-   - Vei primi o listă cu toate atașamentele disponibile
-   - Opțional: Notează ID-ul atașamentului (attachmentId) pe care vrei să-l salvezi
-   - Dacă există un singur atașament sau vrei primul, poți omite attachmentId
+2. List the available attachments
+   - Use list_attachments with messageId
+   - You will receive a list of all available attachments
+   - Optional: Note the attachment ID (attachmentId) of the attachment you want to save
+   - If there is only one attachment or you want the first one, you can omit attachmentId
 
-3. Specifică locația de salvare
-   - Stabilește calea unde vrei să salvezi atașamentul (targetPath)
-   - Asigură-te că ai drepturi de scriere în acea locație
+3. Specify the save location
+   - Set the path where you want to save the attachment (targetPath)
+   - Ensure that you have write permissions in that location
 
-4. Salvează atașamentul
-   - Folosește save_attachment cu messageId și targetPath
-   - Opțional: Adaugă attachmentId dacă vrei un atașament specific
-   - Atașamentul va fi salvat direct pe disc la locația specificată
+4. Save the attachment
+   - Use save_attachment with messageId and targetPath
+   - Optional: Add attachmentId if you want a specific attachment
+   - The attachment will be saved directly to disk at the specified location
 
-CARACTERISTICI CHEIE ALE SAVE_ATTACHMENT:
-- Gestionează automat tot procesul, de la obținerea datelor până la scrierea pe disc
-- Verifică integritatea fișierului după salvare
-- Creează directoarele necesare dacă acestea nu există
-- Selectează automat primul atașament dacă nu se specifică un ID
+KEY FEATURES OF SAVE_ATTACHMENT:
+- Automatically handles the entire process, from obtaining the data to writing it to disk
+- Verifies the integrity of the file after saving
+- Creates necessary directories if they do not exist
+- Automatically selects the first attachment if no ID is specified
 
-Exemplu de flux:
-1. Găsești emailul cu search_emails
-2. Identifici atașamentele disponibile cu list_attachments
-3. Execuți save_attachment cu messageId și targetPath pentru a salva fișierul
+Example workflow:
+1. Find the email with search_emails
+2. Identify the available attachments with list_attachments
+3. Execute save_attachment with messageId and targetPath to save the file
 
 Note: 
-- Pentru fișiere mari, procesul de salvare poate dura mai mult timp
-- Verifică întotdeauna tipul fișierului pentru a te asigura că este sigur de salvat
-- Dacă targetPath specifică doar un director, se va folosi numele original al fișierului
-- Dacă targetPath include și numele fișierului, acesta va fi folosit în locul numelui original
+- For large files, the saving process may take longer
+- Always check the file type to ensure it is safe to save
+- If targetPath specifies only a directory, the original file name will be used
+- If targetPath includes the file name, it will be used instead of the original name
 `,
     parameters: ["messageId", "attachmentId", "targetPath"],
     required_output: ["success", "targetPath", "filename", "mimeType", "size"]

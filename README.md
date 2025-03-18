@@ -29,6 +29,7 @@ src/
     ├── email-send-tools.ts  # Tools for sending, replying and forwarding emails
     ├── email-search-tools.ts # Tools for searching and filtering emails
     ├── email-label-tools.ts # Tools for managing labels and message states
+    ├── email-attachment-tools.ts # Tools for listing and saving attachments
     └── timezone-tool.ts     # Tool for verifying timezone configuration
 ```
 
@@ -46,6 +47,7 @@ src/
   - **email-send-tools.ts**: Tools for sending emails
   - **email-search-tools.ts**: Tools for searching and filtering emails
   - **email-label-tools.ts**: Tools for managing labels and message states (read/unread, archive/unarchive)
+  - **email-attachment-tools.ts**: Tools for listing attachments and saving them securely to disk
   - **timezone-tool.ts**: Tool for verifying timezone configuration and comparing time formats
 
 ## Configuration
@@ -55,6 +57,7 @@ The server supports the following configuration:
 - `GMAIL_OAUTH_PATH`: Path to the OAuth keys file (default: `~/.email-mcp/gcp-oauth.keys.json`)
 - `GMAIL_CREDENTIALS_PATH`: Path to the OAuth credentials file (default: `~/.email-mcp/credentials.json`)
 - `TIME_ZONE`: Timezone configuration in format like 'GMT+2' or 'GMT-5' (default: 'GMT+0')
+- `DEFAULT_ATTACHMENTS_FOLDER`: Path to the directory where email attachments can be saved (e.g., '/Users/username/CLAUDE/attachments')
 
 ## Features
 
@@ -78,6 +81,7 @@ The server supports the following configuration:
 - **Multi-Account Support**: Automatic handling of multiple sending addresses and aliases
 - **Smart Reply Addressing**: Selection of correct sending address based on original recipient
 - **UTF-8 Encoding**: Proper encoding of international characters in subject and body content
+- **Secure Attachment Handling**: Restricted attachment saving to designated folder with path validation
 
 ### Label Management
 
@@ -94,6 +98,14 @@ The server supports the following configuration:
 - **Configurable Offset**: Support for custom GMT offsets (GMT+2, GMT-5, etc.)
 - **Consistent Formatting**: All timestamps displayed with the configured timezone
 - **Date Calculations**: Search filters like "today" and "yesterday" properly adjusted for timezone
+
+### Attachment Management
+
+- **List Attachments**: View all attachments in an email with full metadata (name, size, type)
+- **Save Attachments**: Securely save attachments to the configured DEFAULT_ATTACHMENTS_FOLDER
+- **Path Security**: Validation and normalization to prevent path traversal attacks
+- **File Integrity**: Verification of saved files with size validation and error reporting
+- **Automatic Selection**: Intelligent handling when no specific attachment ID is provided
 
 ## Installation
 

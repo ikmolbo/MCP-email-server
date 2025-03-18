@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.8.0] - 2024-04-18
+
+### Added
+- Security improvements for email attachments:
+  - Added `DEFAULT_ATTACHMENTS_FOLDER` environment variable to restrict where attachments can be saved
+  - Implemented path validation and normalization to prevent path traversal attacks
+  - Enhanced attachment handling with automatic directory creation and file integrity verification
+  - Improved error reporting for attachment operations with detailed debug messages
+- Streamlined attachment management:
+  - Simplified attachment workflow by removing `get_attachment` tool
+  - Made `save_attachment` the only approved method for handling attachments
+  - Improved automatic attachment selection when no specific ID is provided
+  - Added relative path information in attachment save results
+
+### Changed
+- Enhanced attachment saving process:
+  - Improved Base64 decoding and file writing functionality
+  - Added comprehensive file validation after save operations
+  - Updated prompts to reflect security improvements and simplified workflow
+  - Made attachment ID optional when message has only one attachment
+
+### Fixed
+- Fixed issue with zero-byte attachment files by implementing direct file writing
+- Fixed attachment retrieval problems by improving error handling and adding fallback mechanisms
+- Addressed "Invalid attachment token" errors with better token management
+- Fixed security issues by restricting file operations to a designated directory
+
 ## [0.7.0] - 2024-03-18
 
 ### Added

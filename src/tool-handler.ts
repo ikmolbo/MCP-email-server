@@ -17,6 +17,18 @@ import {
   trashMessageTool
 } from "./tools/email-label-tools.js";
 import { getTimezoneInfoTool } from "./tools/timezone-tool.js";
+import {
+  createDraftTool,
+  getDraftTool,
+  listDraftsTool,
+  updateDraftTool,
+  deleteDraftTool,
+  sendDraftTool
+} from "./tools/email-draft-tools.js";
+import {
+  getAttachmentTool,
+  listAttachmentsTool
+} from "./tools/email-attachment-tools.js";
 
 export interface ToolHandler {
   (client: GmailClientWrapper, params: Record<string, unknown>): Promise<unknown>;
@@ -49,6 +61,18 @@ export const tools = [
   archiveMessageTool,
   unarchiveMessageTool,
   trashMessageTool,
+  
+  // Draft management tools
+  createDraftTool,
+  getDraftTool,
+  listDraftsTool,
+  updateDraftTool,
+  deleteDraftTool,
+  sendDraftTool,
+  
+  // Attachment management tools
+  getAttachmentTool,
+  listAttachmentsTool,
   
   // Timezone information tool
   getTimezoneInfoTool

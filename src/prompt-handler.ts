@@ -522,6 +522,105 @@ Notă: Email-ul redirecționat va conține tot conținutul original, inclusiv he
     `,
     parameters: ["messageId", "to", "additionalContent", "cc", "from"],
     required_output: ["messageId", "threadId", "to", "subject", "from"]
+  },
+
+  draft_management: {
+    name: "draft_management",
+    description: "Gestionează ciornele (drafts) din contul de email",
+    template: `
+Pentru a gestiona ciornele de email, ai la dispoziție următoarele tool-uri:
+
+1. CREATE_DRAFT
+   Creează o ciornă nouă pentru un email.
+   Parametri necesari:
+   - to: Lista de destinatari
+   - subject: Subiectul emailului
+   - body: Conținutul emailului
+   Parametri opționali:
+   - cc: Destinatari în CC
+   - bcc: Destinatari în BCC
+   - from: Adresa de la care trimiți
+
+2. GET_DRAFT
+   Obține detaliile unei ciorne existente.
+   Parametru necesar:
+   - draftId: ID-ul ciornei
+
+3. LIST_DRAFTS
+   Listează toate ciornele din cont.
+   Parametri opționali:
+   - maxResults: Numărul maxim de ciorne (implicit 20)
+   - pageToken: Token pentru pagina următoare
+   - query: Filtru de căutare
+
+4. UPDATE_DRAFT
+   Actualizează o ciornă existentă.
+   Parametri necesari:
+   - draftId: ID-ul ciornei
+   - to: Lista nouă de destinatari
+   - subject: Subiectul nou
+   - body: Conținutul nou
+   Parametri opționali:
+   - cc, bcc, from: Ca la create_draft
+
+5. DELETE_DRAFT
+   Șterge permanent o ciornă.
+   Parametru necesar:
+   - draftId: ID-ul ciornei
+
+6. SEND_DRAFT
+   Trimite o ciornă existentă.
+   Parametru necesar:
+   - draftId: ID-ul ciornei
+
+FLUX TIPIC DE LUCRU:
+1. Creezi o ciornă cu create_draft
+2. Verifici ciorna cu get_draft sau list_drafts
+3. Actualizezi ciorna cu update_draft dacă este necesar
+4. Trimiți ciorna cu send_draft sau o ștergi cu delete_draft
+
+Ciornele sunt utile când:
+- Vrei să pregătești un email important înainte de a-l trimite
+- Trebuie să revii la un email mai târziu pentru a-l finaliza
+- Ai nevoie să salvezi un șablon de email pentru utilizare frecventă
+- Vrei să verifici conținutul înainte de a trimite
+    `,
+    parameters: [],
+    required_output: ["operation", "draftId"]
+  },
+
+  attachment_management: {
+    name: "attachment_management",
+    description: "Gestionează atașamentele email-urilor",
+    template: `
+Pentru a gestiona atașamentele email-urilor, ai la dispoziție următoarele tool-uri:
+
+1. LIST_ATTACHMENTS
+   Listează toate atașamentele dintr-un email.
+   Parametru necesar:
+   - messageId: ID-ul mesajului pentru care se listează atașamentele
+   Rezultat:
+   - Lista cu toate atașamentele și detaliile lor (nume, tip, dimensiune)
+
+2. GET_ATTACHMENT
+   Obține un atașament specific dintr-un email.
+   Parametri necesari:
+   - messageId: ID-ul mesajului care conține atașamentul
+   - attachmentId: ID-ul atașamentului
+   Rezultat:
+   - Detaliile atașamentului și conținutul acestuia
+
+FLUX TIPIC DE LUCRU:
+1. Obții un email folosind read_email sau search_emails
+2. Listezi atașamentele acestuia cu list_attachments
+3. Descarci un atașament specific cu get_attachment
+
+Este util să folosești list_attachments mai întâi pentru a vedea ce atașamente sunt disponibile și pentru a obține ID-urile lor, înainte de a descărca atașamente specifice.
+
+Notă: Atașamentele pot fi de diferite tipuri: documente, imagini, arhive, etc. Tipul MIME al atașamentului îți indică formatul acestuia.
+    `,
+    parameters: ["messageId", "attachmentId"],
+    required_output: ["operation", "messageId", "attachments"]
   }
 };
 

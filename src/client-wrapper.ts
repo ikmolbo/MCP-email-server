@@ -42,6 +42,42 @@ export interface EmailData {
   }>;
 }
 
+export interface DraftData {
+  id: string;
+  message: {
+    id?: string;
+    threadId?: string;
+    labelIds?: string[];
+    snippet?: string;
+    subject?: string;
+    to?: string[];
+    cc?: string[];
+    bcc?: string[];
+    from?: string;
+    content?: string;
+  };
+}
+
+export interface DraftOptions {
+  maxResults?: number;
+  pageToken?: string;
+  query?: string;
+}
+
+export interface DraftResponse {
+  drafts: DraftData[];
+  nextPageToken?: string;
+  totalResults: number;
+}
+
+export interface AttachmentData {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  data: string;
+}
+
 export class GmailClientWrapper {
   private gmail: gmail_v1.Gmail;
   private userId: string = 'me';
@@ -580,5 +616,317 @@ export class GmailClientWrapper {
   
   async trashMessage(messageId: string): Promise<gmail_v1.Schema$Message> {
     return this.modifyMessageLabels(messageId, ['TRASH'], ['INBOX']);
+  }
+
+  // Draft management methods
+
+  /**
+   * Create a new draft email
+   */
+  async createDraft(options: {
+    to: string[];
+    subject: string;
+    content: string;
+    from?: string;
+    cc?: string[];
+    bcc?: string[];
+  }): Promise<DraftData> {
+    try {
+      const encodedEmail = await this.createEmailRaw(options);
+
+      const response = await this.gmail.users.drafts.create({
+        userId: this.userId,
+        requestBody: {
+          message: {
+            raw: encodedEmail,
+          },
+        },
+      });
+
+      // Return draft data with message details
+      const draft: DraftData = {
+        id: response.data.id || '',
+        message: {
+          id: response.data.message?.id === null ? undefined : response.data.message?.id,
+          threadId: response.data.message?.threadId === null ? undefined : response.data.message?.threadId,
+          subject: options.subject,
+          to: options.to,
+          cc: options.cc,
+          from: options.from,
+          content: options.content
+        }
+      };
+      
+      return draft;
+    } catch (error) {
+      throw new Error(`Failed to create draft: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Get a specific draft by ID
+   */
+  async getDraft(draftId: string): Promise<DraftData> {
+    try {
+      const response = await this.gmail.users.drafts.get({
+        userId: this.userId,
+        id: draftId,
+        format: 'full',
+      });
+
+      if (!response.data || !response.data.message) {
+        throw new Error('Draft not found or has no message data');
+      }
+
+      const messageData = response.data.message;
+      const headers = messageData.payload?.headers || [];
+      const subject = headers.find(h => h.name === 'Subject')?.value || '';
+      const toHeader = headers.find(h => h.name === 'To')?.value || '';
+      const ccHeader = headers.find(h => h.name === 'Cc')?.value || '';
+      const fromHeader = headers.find(h => h.name === 'From')?.value || '';
+      
+      const to = toHeader ? toHeader.split(',').map(e => e.trim()) : [];
+      const cc = ccHeader ? ccHeader.split(',').map(e => e.trim()) : [];
+      
+      const content = this.extractContent(messageData);
+
+      const draft: DraftData = {
+        id: response.data.id || '',
+        message: {
+          id: messageData.id ?? undefined,
+          threadId: messageData.threadId ?? undefined,
+          labelIds: messageData.labelIds ?? undefined,
+          snippet: messageData.snippet ?? undefined,
+          subject,
+          to,
+          cc,
+          from: fromHeader,
+          content
+        }
+      };
+
+      return draft;
+    } catch (error) {
+      throw new Error(`Failed to get draft: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * List drafts in the user's account
+   */
+  async listDrafts(options?: DraftOptions): Promise<DraftResponse> {
+    try {
+      const response = await this.gmail.users.drafts.list({
+        userId: this.userId,
+        maxResults: options?.maxResults,
+        pageToken: options?.pageToken,
+        q: options?.query,
+      });
+
+      if (!response.data.drafts) {
+        return {
+          drafts: [],
+          nextPageToken: undefined,
+          totalResults: 0,
+        };
+      }
+
+      const drafts: DraftData[] = await Promise.all(
+        response.data.drafts.map(async (draft) => {
+          try {
+            return await this.getDraft(draft.id || '');
+          } catch (error) {
+            // If we can't get the full draft data, return minimal data
+            return {
+              id: draft.id || '',
+              message: {
+                id: draft.message?.id ?? undefined,
+                threadId: draft.message?.threadId ?? undefined,
+              }
+            };
+          }
+        })
+      );
+
+      return {
+        drafts,
+        nextPageToken: response.data.nextPageToken ?? undefined,
+        totalResults: response.data.resultSizeEstimate || 0,
+      };
+    } catch (error) {
+      throw new Error(`Failed to list drafts: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Update an existing draft
+   */
+  async updateDraft(draftId: string, options: {
+    to: string[];
+    subject: string;
+    content: string;
+    cc?: string[];
+    bcc?: string[];
+    from?: string;
+  }): Promise<DraftData> {
+    try {
+      const raw = await this.createEmailRaw(options);
+      
+      const response = await this.gmail.users.drafts.update({
+        userId: this.userId,
+        id: draftId,
+        requestBody: {
+          message: {
+            raw
+          }
+        }
+      });
+      
+      // Return updated draft data
+      return {
+        id: response.data.id || draftId,
+        message: {
+          id: response.data.message?.id === null ? undefined : response.data.message?.id,
+          threadId: response.data.message?.threadId === null ? undefined : response.data.message?.threadId,
+          subject: options.subject,
+          to: options.to,
+          cc: options.cc,
+          from: options.from,
+          content: options.content
+        }
+      };
+    } catch (error) {
+      throw new Error(`Failed to update draft ${draftId}: ${error}`);
+    }
+  }
+
+  /**
+   * Delete a draft
+   */
+  async deleteDraft(draftId: string): Promise<void> {
+    try {
+      await this.gmail.users.drafts.delete({
+        userId: this.userId,
+        id: draftId
+      });
+    } catch (error) {
+      throw new Error(`Failed to delete draft ${draftId}: ${error}`);
+    }
+  }
+
+  /**
+   * Send an existing draft
+   */
+  async sendDraft(draftId: string): Promise<{ messageId?: string; threadId?: string }> {
+    try {
+      const response = await this.gmail.users.drafts.send({
+        userId: 'me',
+        requestBody: {
+          id: draftId,
+        },
+      });
+
+      // Folosim type assertion pentru a gestiona tipurile din răspuns
+      const messageId: string | undefined = response.data.id as string | undefined;
+      const threadId: string | undefined = response.data.threadId as string | undefined;
+
+      return {
+        messageId,
+        threadId,
+      };
+    } catch (error) {
+      throw new Error(`Failed to send draft: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  // Attachment management methods
+
+  /**
+   * Get a specific attachment from a message
+   */
+  async getAttachment(messageId: string, attachmentId: string): Promise<AttachmentData> {
+    try {
+      const response = await this.gmail.users.messages.attachments.get({
+        userId: this.userId,
+        messageId,
+        id: attachmentId,
+      });
+
+      if (!response.data) {
+        throw new Error('Attachment not found');
+      }
+
+      // Get the message to find the attachment metadata
+      const messageResponse = await this.gmail.users.messages.get({
+        userId: this.userId,
+        id: messageId,
+      });
+
+      if (!messageResponse.data || !messageResponse.data.payload) {
+        throw new Error('Message not found or has no payload');
+      }
+
+      // Find the attachment part in the message
+      const findAttachmentPart = (parts: any, id: string): any => {
+        for (const part of parts || []) {
+          if (part.body?.attachmentId === id) {
+            return part;
+          }
+          if (part.parts) {
+            const found = findAttachmentPart(part.parts, id);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const attachmentPart = findAttachmentPart(
+        messageResponse.data.payload.parts, 
+        attachmentId
+      );
+
+      if (!attachmentPart) {
+        throw new Error('Attachment metadata not found in message');
+      }
+
+      return {
+        id: attachmentId,
+        filename: attachmentPart.filename ?? 'unnamed-attachment',
+        mimeType: attachmentPart.mimeType ?? 'application/octet-stream',
+        size: parseInt(attachmentPart.body?.size ?? '0', 10),
+        data: response.data.data ?? '',
+      };
+    } catch (error) {
+      throw new Error(`Failed to get attachment: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * List all attachments in a message
+   */
+  async listAttachments(messageId: string): Promise<AttachmentData[]> {
+    try {
+      // Get the message to extract attachment information
+      const message = await this.getMessage(messageId);
+      
+      // Extract attachments from message parts
+      const attachments: AttachmentData[] = [];
+      
+      if (message.attachments) {
+        for (const attachment of message.attachments) {
+          attachments.push({
+            id: attachment.data.split('/')[1] || '',
+            filename: attachment.filename,
+            mimeType: attachment.mimeType,
+            size: 0,
+            data: '' // We don't fetch the data here to avoid large responses
+          });
+        }
+      }
+      
+      return attachments;
+    } catch (error) {
+      throw new Error(`Failed to list attachments for message ${messageId}: ${error}`);
+    }
   }
 } 

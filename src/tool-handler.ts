@@ -27,7 +27,8 @@ import {
 } from "./tools/email-draft-tools.js";
 import {
   getAttachmentTool,
-  listAttachmentsTool
+  listAttachmentsTool,
+  saveAttachmentTool
 } from "./tools/email-attachment-tools.js";
 
 export interface ToolHandler {
@@ -73,6 +74,7 @@ export const tools = [
   // Attachment management tools
   getAttachmentTool,
   listAttachmentsTool,
+  saveAttachmentTool,
   
   // Timezone information tool
   getTimezoneInfoTool

@@ -168,11 +168,18 @@ Example of a local config file for Claude Desktop:
   "mcpServers": {
     "email-server": {
       "command": "node",
-      "args": ["/path/to/email-server/build/index.js"]
+      "args": ["/path/to/email-server/build/index.js"],
+      "env": {
+          "TIME_ZONE": "GMT+2",
+          "DEFAULT_ATTACHMENTS_FOLDER": "/Users/username/CLAUDE/Attachments"
+      }     
     }
   }
 }
 ```
+IMPORTANT: Set the DEFAULT_ATTACHMENTS_FOLDER to a valid path on your system.
+
+IMPORTANT: Set the TIME_ZONE to your local timezone.
 
 ## Available Tools
 

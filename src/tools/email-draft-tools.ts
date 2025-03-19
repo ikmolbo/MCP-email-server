@@ -12,6 +12,7 @@ const CreateDraftSchema = z.object({
   cc: z.array(z.string()).optional().describe("Lista destinatarilor în CC"),
   bcc: z.array(z.string()).optional().describe("Lista destinatarilor în BCC"),
   from: z.string().optional().describe("Adresa specifică de la care se trimite email-ul"),
+  inReplyTo: z.string().optional().describe("Message ID to reply to"),
 });
 
 /**
@@ -92,6 +93,10 @@ export const createDraftTool: Tool = {
       from: {
         type: "string",
         description: "Specific email address of the sender"
+      },
+      inReplyTo: {
+        type: "string",
+        description: "Message ID to reply to"
       }
     },
     required: ["to", "subject", "body"]
@@ -103,6 +108,7 @@ export const createDraftTool: Tool = {
     cc?: string[];
     bcc?: string[];
     from?: string;
+    inReplyTo?: string;
   }) => {
     try {
       const draft = await client.createDraft({
@@ -111,7 +117,8 @@ export const createDraftTool: Tool = {
         content: params.body,
         cc: params.cc,
         bcc: params.bcc,
-        from: params.from
+        from: params.from,
+        inReplyTo: params.inReplyTo
       });
 
       return {
@@ -119,7 +126,8 @@ export const createDraftTool: Tool = {
         messageId: draft.message?.id,
         to: params.to,
         subject: params.subject,
-        from: params.from || "Me"
+        from: params.from || "Me",
+        inReplyTo: params.inReplyTo
       };
     } catch (error) {
       throw new Error(`Failed to create draft: ${error}`);

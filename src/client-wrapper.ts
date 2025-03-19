@@ -628,9 +628,17 @@ export class GmailClientWrapper {
     from?: string;
     cc?: string[];
     bcc?: string[];
+    inReplyTo?: string;
   }): Promise<DraftData> {
     try {
-      const encodedEmail = await this.createEmailRaw(options);
+      const encodedEmail = await this.createEmailRaw({
+        to: options.to,
+        subject: options.subject,
+        content: options.content,
+        from: options.from,
+        cc: options.cc,
+        inReplyTo: options.inReplyTo
+      });
 
       const response = await this.gmail.users.drafts.create({
         userId: this.userId,

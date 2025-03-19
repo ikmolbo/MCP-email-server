@@ -1,18 +1,18 @@
 import { GetPromptRequest, GetPromptResult, ListPromptsResult } from "@modelcontextprotocol/sdk/types.js";
 
 export interface EmailPrompt {
-  name: string;
-  description: string;
-  template: string;
-  parameters: string[];
-  required_output: string[];
+   name: string;
+   description: string;
+   template: string;
+   parameters: string[];
+   required_output: string[];
 }
 
 export const emailPrompts: Record<string, EmailPrompt> = {
-  read_email: {
-    name: "read_email",
-    description: "Read an email and extract all necessary context including state, category and thread information",
-    template: `
+   read_email: {
+      name: "read_email",
+      description: "Read an email and extract all necessary context including state, category and thread information",
+      template: `
 Given an email message, please analyze and provide:
 
 1. Basic Information:
@@ -72,26 +72,26 @@ Format: [text/html]
 ATTACHMENTS
 [list of attachments with details]
     `,
-    parameters: ["messageId"],
-    required_output: [
-      "messageId", 
-      "threadId", 
-      "subject", 
-      "from", 
-      "to", 
-      "date", 
-      "isUnread", 
-      "category", 
-      "isInInbox", 
-      "labels", 
-      "content"
-    ]
-  },
-  
-  send_email: {
-    name: "send_email",
-    description: "Send a new email",
-    template: `
+      parameters: ["messageId"],
+      required_output: [
+         "messageId",
+         "threadId",
+         "subject",
+         "from",
+         "to",
+         "date",
+         "isUnread",
+         "category",
+         "isInInbox",
+         "labels",
+         "content"
+      ]
+   },
+
+   send_email: {
+      name: "send_email",
+      description: "Send a new email",
+      template: `
 To send a new email, please provide:
 1. Recipient address(es)
 2. Subject
@@ -100,14 +100,14 @@ To send a new email, please provide:
 
 The email will be sent using the specified from address or the default one if not provided.
     `,
-    parameters: ["to", "subject", "content", "from"],
-    required_output: ["messageId"]
-  },
+      parameters: ["to", "subject", "content", "from"],
+      required_output: ["messageId"]
+   },
 
-  send_reply: {
-    name: "send_reply",
-    description: "Send a reply in an email thread",
-    template: `
+   send_reply: {
+      name: "send_reply",
+      description: "Send a reply in an email thread",
+      template: `
 To properly reply to an email, we need:
 1. Original message Thread ID
 2. Original recipient address (to use as sender)
@@ -122,14 +122,14 @@ The reply will be sent:
 
 Please ensure all these elements are provided to maintain email thread context.
     `,
-    parameters: ["threadId", "fromAddress", "subject", "content", "inReplyTo"],
-    required_output: ["messageId", "threadId"]
-  },
+      parameters: ["threadId", "fromAddress", "subject", "content", "inReplyTo"],
+      required_output: ["messageId", "threadId"]
+   },
 
-  send_reply_all: {
-    name: "send_reply_all",
-    description: "Reply to an email and include all original recipients",
-    template: `
+   send_reply_all: {
+      name: "send_reply_all",
+      description: "Reply to an email and include all original recipients",
+      template: `
 When you need to Reply All to an email, keeping all original recipients in the loop, you need:
 
 1. Original Message ID (required)
@@ -163,14 +163,14 @@ The tool will automatically:
 3. Format the subject line correctly
 4. Set all required email headers for threading
     `,
-    parameters: ["messageId", "body", "additionalRecipients", "excludeRecipients"],
-    required_output: ["messageId", "threadId", "to", "cc"]
-  },
+      parameters: ["messageId", "body", "additionalRecipients", "excludeRecipients"],
+      required_output: ["messageId", "threadId", "to", "cc"]
+   },
 
-  get_recent_emails: {
-    name: "get_recent_emails",
-    description: "Get recent emails with support for Gmail categories, read state, and date filtering",
-    template: `
+   get_recent_emails: {
+      name: "get_recent_emails",
+      description: "Get recent emails with support for Gmail categories, read state, and date filtering",
+      template: `
 To get recent emails, please CHOOSE ONE time filtering method:
 
 OPTION 1: Use the timeFilter parameter (RECOMMENDED FOR CALENDAR DATES)
@@ -235,14 +235,14 @@ The search will return:
 - Preview of content
 - Next page token if more results are available
     `,
-    parameters: ["hours", "category", "maxResults", "query", "pageToken", "timeFilter", "autoFetchAll"],
-    required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInInbox", "received"]
-  },
+      parameters: ["hours", "category", "maxResults", "query", "pageToken", "timeFilter", "autoFetchAll"],
+      required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInInbox", "received"]
+   },
 
-  search_emails: {
-    name: "search_emails",
-    description: "Search for emails with support for Gmail categories, read state, and precise date filtering",
-    template: `
+   search_emails: {
+      name: "search_emails",
+      description: "Search for emails with support for Gmail categories, read state, and precise date filtering",
+      template: `
 To search for emails, please provide:
 1. Search query (required)
 2. Time filter (optional but RECOMMENDED):
@@ -312,14 +312,14 @@ The search will return:
 - Preview of content
 - Next page token if more results are available
     `,
-    parameters: ["query", "category", "maxResults", "pageToken", "timeFilter", "autoFetchAll"],
-    required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInbox", "received"]
-  },
+      parameters: ["query", "category", "maxResults", "pageToken", "timeFilter", "autoFetchAll"],
+      required_output: ["messageId", "subject", "from", "to", "category", "isUnread", "isInbox", "received"]
+   },
 
-  label_management: {
-    name: "label_management",
-    description: "Manage Gmail labels including listing, creating, updating, and deleting labels",
-    template: `
+   label_management: {
+      name: "label_management",
+      description: "Manage Gmail labels including listing, creating, updating, and deleting labels",
+      template: `
 To manage Gmail labels, you can use the following operations:
 
 1. LIST LABELS
@@ -396,14 +396,14 @@ IMPORTANT NOTES:
 - You cannot modify system label properties
 - Gmail has a limit of 10,000 labels per mailbox
     `,
-    parameters: [],
-    required_output: ["operation", "parameters"]
-  },
-  
-  modify_labels: {
-    name: "modify_labels",
-    description: "Add or remove labels from a message",
-    template: `
+      parameters: [],
+      required_output: ["operation", "parameters"]
+   },
+
+   modify_labels: {
+      name: "modify_labels",
+      description: "Add or remove labels from a message",
+      template: `
 To add or remove labels from a message, please provide:
 
 1. The message ID (required)
@@ -431,14 +431,14 @@ COMMON OPERATIONS:
 
 Label IDs for custom labels can be found using the list_labels tool.
     `,
-    parameters: ["messageId", "addLabelIds", "removeLabelIds"],
-    required_output: ["messageId", "labels"]
-  },
+      parameters: ["messageId", "addLabelIds", "removeLabelIds"],
+      required_output: ["messageId", "labels"]
+   },
 
-  timezone_info: {
-    name: "timezone_info",
-    description: "Check the system's time zone configuration",
-    template: `
+   timezone_info: {
+      name: "timezone_info",
+      description: "Check the system's time zone configuration",
+      template: `
 To check the system's time zone configuration, you can use the get_timezone_info tool.
 
 This tool will return the following information:
@@ -454,14 +454,14 @@ This information will help you understand:
 
 To change the time zone, the TIME_ZONE configuration must be modified at the system level.
     `,
-    parameters: [],
-    required_output: ["timeZoneConfig", "offsetHours", "currentTimeLocal", "currentTimeUTC"]
-  },
+      parameters: [],
+      required_output: ["timeZoneConfig", "offsetHours", "currentTimeLocal", "currentTimeUTC"]
+   },
 
-  send_as_accounts: {
-    name: "send_as_accounts",
-    description: "List of accounts and email addresses that can be used for sending emails",
-    template: `
+   send_as_accounts: {
+      name: "send_as_accounts",
+      description: "List of accounts and email addresses that can be used for sending emails",
+      template: `
 To manage emails sent from different addresses, you can use the list_send_as_accounts tool.
 
 This tool will list all accounts and email addresses that can be used for sending messages, including:
@@ -483,14 +483,14 @@ How to use this information:
 
 IMPORTANT: Always send from the correct address depending on the context! If you reply to an email sent to a specific address, use that address for the reply.
     `,
-    parameters: [],
-    required_output: ["accounts", "defaultAccount", "count"]
-  },
+      parameters: [],
+      required_output: ["accounts", "defaultAccount", "count"]
+   },
 
-  forward_email: {
-    name: "forward_email",
-    description: "Forward an email to other recipients",
-    template: `
+   forward_email: {
+      name: "forward_email",
+      description: "Forward an email to other recipients",
+      template: `
 To forward an email to other recipients, use the forward_email tool.
 
 Required parameters:
@@ -513,14 +513,14 @@ Example usage:
 
 Note: The forwarded email will contain all the original content, including headers and attachments.
     `,
-    parameters: ["messageId", "to", "additionalContent", "cc", "from"],
-    required_output: ["messageId", "threadId", "to", "subject", "from"]
-  },
+      parameters: ["messageId", "to", "additionalContent", "cc", "from"],
+      required_output: ["messageId", "threadId", "to", "subject", "from"]
+   },
 
-  draft_management: {
-    name: "draft_management",
-    description: "Manage drafts in the email account",
-    template: `
+   draft_management: {
+      name: "draft_management",
+      description: "Manage drafts in the email account",
+      template: `
 To manage email drafts, you have the following tools available:
 
 1. CREATE_DRAFT
@@ -533,20 +533,33 @@ To manage email drafts, you have the following tools available:
    - cc: CC recipients
    - bcc: BCC recipients
    - from: The address from which you send
+   - inReplyTo: Message ID to reply to
+   - threadId: Thread ID to add the draft to (for maintaining conversation threads)
 
-2. GET_DRAFT
+2. CREATE_DRAFT_REPLY
+   Creates a draft reply to an existing email, maintaining the conversation thread.
+   Required parameters:
+   - messageId: ID of the message to reply to
+   - body: Content of the reply
+   Optional parameters:
+   - to: List of recipients (defaults to original sender)
+   - cc: CC recipients
+   - bcc: BCC recipients
+   - from: Specific sender address
+
+3. GET_DRAFT
    Retrieves the details of an existing draft.
    Required parameter:
    - draftId: The draft's ID
 
-3. LIST_DRAFTS
+4. LIST_DRAFTS
    Lists all drafts in the account.
    Optional parameters:
    - maxResults: Maximum number of drafts (default 20)
    - pageToken: Token for the next page
    - query: Search filter
 
-4. UPDATE_DRAFT
+5. UPDATE_DRAFT
    Updates an existing draft.
    Required parameters:
    - draftId: The draft's ID
@@ -556,21 +569,33 @@ To manage email drafts, you have the following tools available:
    Optional parameters:
    - cc, bcc, from: Same as in create_draft
 
-5. DELETE_DRAFT
+6. DELETE_DRAFT
    Permanently deletes a draft.
    Required parameter:
    - draftId: The draft's ID
 
-6. SEND_DRAFT
+7. SEND_DRAFT
    Sends an existing draft.
    Required parameter:
    - draftId: The draft's ID
 
 TYPICAL WORKFLOW:
-1. Create a draft with create_draft
+1. Create a draft with create_draft or create_draft_reply
 2. Check the draft with get_draft or list_drafts
 3. Update the draft with update_draft if necessary
 4. Send the draft with send_draft or delete it with delete_draft
+
+REPLY WORKFLOWS:
+1. For replying to an email:
+   - Use create_draft_reply which automatically handles:
+     * Setting the correct subject with "Re:" prefix
+     * Maintaining thread context
+     * Setting original sender as recipient
+     * Including proper headers for threading
+
+2. For manual reply setup:
+   - Use create_draft with threadId and inReplyTo parameters
+   - You must manually handle subject formatting and recipients
 
 Drafts are useful when:
 - You want to prepare an important email before sending it
@@ -578,14 +603,51 @@ Drafts are useful when:
 - You need to save an email template for frequent use
 - You want to review the content before sending
     `,
-    parameters: [],
-    required_output: ["operation", "draftId"]
-  },
+      parameters: [],
+      required_output: ["operation", "draftId"]
+   },
 
-  attachment_management: {
-    name: "attachment_management",
-    description: "Manage email attachments",
-    template: `
+   draft_reply: {
+      name: "draft_reply",
+      description: "Create a draft reply to an existing email",
+      template: `
+To create a draft reply to an existing email, use the create_draft_reply tool which handles all the necessary aspects of maintaining a conversation thread.
+
+Required parameters:
+1. messageId - The ID of the original message you're replying to
+2. body - The content of your reply
+
+Optional parameters:
+- to - List of email addresses to override the original sender (defaults to the original sender)
+- cc - List of CC recipients
+- bcc - List of BCC recipients
+- from - Specific email address to send from (using one of your send-as addresses)
+
+Benefits of using create_draft_reply:
+- Automatically adds the draft to the original thread
+- Sets proper email headers (In-Reply-To, References) for threading
+- Formats subject with "Re:" prefix if needed
+- Defaults recipient to the original sender
+- Preserves all thread context
+
+Example workflow:
+1. Read an email using read_email or find it using search_emails
+2. Use create_draft_reply with the messageId and your reply content
+3. The draft will appear in your Gmail drafts folder, properly threaded
+4. Review or edit the draft in Gmail before sending
+5. You can also manage the draft using other draft tools (update_draft, send_draft, etc.)
+
+Note: This tool only creates a draft - the email will NOT be sent automatically.
+You need to explicitly send the draft using send_draft or through Gmail's interface.
+    `,
+      parameters: ["messageId", "body", "to", "cc", "bcc", "from"],
+      required_output: ["draftId", "messageId", "threadId"]
+   },
+
+   attachment_management: {
+      name: "attachment_management",
+      description: "Manage email attachments",
+      template: `
 To manage email attachments, you can use the following tools:
 
 1. LIST_ATTACHMENTS
@@ -625,14 +687,14 @@ Example:
 
 Note: Attachments can be of different types: documents, images, archives, etc. The MIME type of the attachment indicates its format.
 `,
-    parameters: ["messageId", "attachmentId"],
-    required_output: ["operation", "messageId", "attachments"]
-  },
+      parameters: ["messageId", "attachmentId"],
+      required_output: ["operation", "messageId", "attachments"]
+   },
 
-  save_attachment: {
-    name: "save_attachment",
-    description: "Save an email attachment to the configured default attachments folder",
-    template: `
+   save_attachment: {
+      name: "save_attachment",
+      description: "Save an email attachment to the configured default attachments folder",
+      template: `
 To save an email attachment to the configured DEFAULT_ATTACHMENTS_FOLDER, follow these steps:
 
 1. Identify the email with the attachment
@@ -674,64 +736,64 @@ Notes:
 - If targetPath includes a filename, that will be used instead of the original name
 - All files are saved within the DEFAULT_ATTACHMENTS_FOLDER for security reasons
 `,
-    parameters: ["messageId", "attachmentId", "targetPath"],
-    required_output: ["success", "targetPath", "filename", "mimeType", "size"]
-  }
+      parameters: ["messageId", "attachmentId", "targetPath"],
+      required_output: ["success", "targetPath", "filename", "mimeType", "size"]
+   }
 };
 
 export function createPromptHandler() {
-  return {
-    listPrompts: async (): Promise<ListPromptsResult> => ({
-      prompts: Object.values(emailPrompts).map(prompt => ({
-        name: prompt.name,
-        description: prompt.description,
-        parameters: prompt.parameters,
-        required_output: prompt.required_output
-      }))
-    }),
-    
-    getPrompt: async (request: GetPromptRequest): Promise<GetPromptResult> => {
-      const promptName = request.params.name as string;
-      const prompt = emailPrompts[promptName];
-      
-      if (!prompt) {
-        throw new Error(`Prompt '${promptName}' not found`);
+   return {
+      listPrompts: async (): Promise<ListPromptsResult> => ({
+         prompts: Object.values(emailPrompts).map(prompt => ({
+            name: prompt.name,
+            description: prompt.description,
+            parameters: prompt.parameters,
+            required_output: prompt.required_output
+         }))
+      }),
+
+      getPrompt: async (request: GetPromptRequest): Promise<GetPromptResult> => {
+         const promptName = request.params.name as string;
+         const prompt = emailPrompts[promptName];
+
+         if (!prompt) {
+            throw new Error(`Prompt '${promptName}' not found`);
+         }
+
+         const parameters = request.params.parameters as Record<string, string>;
+
+         // Validate required parameters
+         const missingParams = prompt.parameters.filter(
+            param => !(param in parameters)
+         );
+
+         if (missingParams.length > 0) {
+            throw new Error(
+               `Missing required parameters: ${missingParams.join(", ")}`
+            );
+         }
+
+         // Format the prompt template with provided parameters
+         let formattedPrompt = prompt.template;
+         for (const [key, value] of Object.entries(parameters)) {
+            formattedPrompt = formattedPrompt.replace(
+               new RegExp(`{${key}}`, "g"),
+               String(value)
+            );
+         }
+
+         return {
+            messages: [{
+               role: "user",
+               content: {
+                  type: "text",
+                  text: formattedPrompt
+               }
+            }],
+            _meta: {
+               required_output: prompt.required_output
+            }
+         };
       }
-      
-      const parameters = request.params.parameters as Record<string, string>;
-      
-      // Validate required parameters
-      const missingParams = prompt.parameters.filter(
-        param => !(param in parameters)
-      );
-      
-      if (missingParams.length > 0) {
-        throw new Error(
-          `Missing required parameters: ${missingParams.join(", ")}`
-        );
-      }
-      
-      // Format the prompt template with provided parameters
-      let formattedPrompt = prompt.template;
-      for (const [key, value] of Object.entries(parameters)) {
-        formattedPrompt = formattedPrompt.replace(
-          new RegExp(`{${key}}`, "g"),
-          String(value)
-        );
-      }
-      
-      return {
-        messages: [{
-          role: "user",
-          content: {
-            type: "text",
-            text: formattedPrompt
-          }
-        }],
-        _meta: {
-          required_output: prompt.required_output
-        }
-      };
-    }
-  };
+   };
 } 

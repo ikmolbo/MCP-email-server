@@ -3,16 +3,16 @@ import { GmailClientWrapper } from "./client-wrapper.js";
 import { readEmailTool } from "./tools/email-read-tools.js";
 import { sendEmailTool, replyAllEmailTool, listSendAsAccountsTool, forwardEmailTool } from "./tools/email-send-tools.js";
 import { searchEmailsTool, getRecentEmailsTool } from "./tools/email-search-tools.js";
-import { 
-  listLabelsTool, 
-  getLabelTool, 
-  createLabelTool, 
-  updateLabelTool, 
-  deleteLabelTool, 
+import {
+  listLabelsTool,
+  getLabelTool,
+  createLabelTool,
+  updateLabelTool,
+  deleteLabelTool,
   modifyLabelsTool,
   markAsReadTool,
-  markAsUnreadTool, 
-  archiveMessageTool, 
+  markAsUnreadTool,
+  archiveMessageTool,
   unarchiveMessageTool,
   trashMessageTool
 } from "./tools/email-label-tools.js";
@@ -23,7 +23,8 @@ import {
   listDraftsTool,
   updateDraftTool,
   deleteDraftTool,
-  sendDraftTool
+  sendDraftTool,
+  createDraftReplyTool
 } from "./tools/email-draft-tools.js";
 import {
   listAttachmentsTool,
@@ -46,7 +47,7 @@ export const tools = [
   listSendAsAccountsTool,
   searchEmailsTool,
   getRecentEmailsTool,
-  
+
   // Label management tools
   listLabelsTool,
   getLabelTool,
@@ -54,26 +55,27 @@ export const tools = [
   updateLabelTool,
   deleteLabelTool,
   modifyLabelsTool,
-  
+
   // Email state management tools
   markAsReadTool,
   markAsUnreadTool,
   archiveMessageTool,
   unarchiveMessageTool,
   trashMessageTool,
-  
+
   // Draft management tools
   createDraftTool,
+  createDraftReplyTool,
   getDraftTool,
   listDraftsTool,
   updateDraftTool,
   deleteDraftTool,
   sendDraftTool,
-  
+
   // Attachment management tools
   listAttachmentsTool,
   saveAttachmentTool,
-  
+
   // Timezone information tool
   getTimezoneInfoTool
 ] as ExtendedTool[];

@@ -13,6 +13,7 @@ const CreateDraftSchema = z.object({
   bcc: z.array(z.string()).optional().describe("Lista destinatarilor în BCC"),
   from: z.string().optional().describe("Adresa specifică de la care se trimite email-ul"),
   inReplyTo: z.string().optional().describe("Message ID to reply to"),
+  threadId: z.string().optional().describe("Thread ID to add the draft to (for maintaining conversation threads)"),
 });
 
 /**
@@ -59,6 +60,18 @@ const SendDraftSchema = z.object({
 });
 
 /**
+ * Schema for creating a draft in reply to an existing email
+ */
+const CreateDraftReplySchema = z.object({
+  messageId: z.string().describe("ID of the message to reply to"),
+  body: z.string().describe("Content of the reply"),
+  to: z.array(z.string()).optional().describe("List of email addresses to override original recipients"),
+  cc: z.array(z.string()).optional().describe("List of CC recipients"),
+  bcc: z.array(z.string()).optional().describe("List of BCC recipients"),
+  from: z.string().optional().describe("Specific email address of the sender"),
+});
+
+/**
  * Tool for creating a draft
  */
 export const createDraftTool: Tool = {
@@ -97,6 +110,10 @@ export const createDraftTool: Tool = {
       inReplyTo: {
         type: "string",
         description: "Message ID to reply to"
+      },
+      threadId: {
+        type: "string",
+        description: "Thread ID to add the draft to (for maintaining conversation threads)"
       }
     },
     required: ["to", "subject", "body"]
@@ -109,6 +126,7 @@ export const createDraftTool: Tool = {
     bcc?: string[];
     from?: string;
     inReplyTo?: string;
+    threadId?: string;
   }) => {
     try {
       const draft = await client.createDraft({
@@ -118,12 +136,14 @@ export const createDraftTool: Tool = {
         cc: params.cc,
         bcc: params.bcc,
         from: params.from,
-        inReplyTo: params.inReplyTo
+        inReplyTo: params.inReplyTo,
+        threadId: params.threadId
       });
 
       return {
         draftId: draft.id,
         messageId: draft.message?.id,
+        threadId: draft.message?.threadId,
         to: params.to,
         subject: params.subject,
         from: params.from || "Me",
@@ -154,7 +174,7 @@ export const getDraftTool: Tool = {
   handler: async (client: GmailClientWrapper, params: { draftId: string }) => {
     try {
       const draft = await client.getDraft(params.draftId);
-      
+
       return {
         draftId: draft.id,
         messageId: draft.message?.id,
@@ -205,7 +225,7 @@ export const listDraftsTool: Tool = {
         pageToken: params.pageToken,
         query: params.query
       });
-      
+
       return {
         drafts: drafts.drafts.map(draft => ({
           draftId: draft.id,
@@ -284,7 +304,7 @@ export const updateDraftTool: Tool = {
         bcc: params.bcc,
         from: params.from
       });
-      
+
       return {
         draftId: updatedDraft.id,
         messageId: updatedDraft.message?.id,
@@ -317,7 +337,7 @@ export const deleteDraftTool: Tool = {
   handler: async (client: GmailClientWrapper, params: { draftId: string }) => {
     try {
       await client.deleteDraft(params.draftId);
-      
+
       return {
         draftId: params.draftId,
         status: "deleted"
@@ -347,7 +367,7 @@ export const sendDraftTool: Tool = {
   handler: async (client: GmailClientWrapper, params: { draftId: string }) => {
     try {
       const result = await client.sendDraft(params.draftId);
-      
+
       return {
         draftId: params.draftId,
         messageId: result.messageId,
@@ -358,4 +378,93 @@ export const sendDraftTool: Tool = {
       throw new Error(`Failed to send draft: ${error}`);
     }
   }
-}; 
+};
+
+/**
+ * Tool for creating a draft in reply to an existing email
+ */
+export const createDraftReplyTool: Tool = {
+  name: "create_draft_reply",
+  description: "Create a draft in reply to an existing email, maintaining the conversation thread",
+  inputSchema: {
+    type: "object",
+    properties: {
+      messageId: {
+        type: "string",
+        description: "ID of the message to reply to"
+      },
+      body: {
+        type: "string",
+        description: "Content of the reply"
+      },
+      to: {
+        type: "array",
+        items: { type: "string" },
+        description: "List of email addresses to override original recipients"
+      },
+      cc: {
+        type: "array",
+        items: { type: "string" },
+        description: "List of CC recipients"
+      },
+      bcc: {
+        type: "array",
+        items: { type: "string" },
+        description: "List of BCC recipients"
+      },
+      from: {
+        type: "string",
+        description: "Specific email address of the sender"
+      }
+    },
+    required: ["messageId", "body"]
+  },
+  handler: async (client: GmailClientWrapper, params: {
+    messageId: string;
+    body: string;
+    to?: string[];
+    cc?: string[];
+    bcc?: string[];
+    from?: string;
+  }) => {
+    try {
+      // First get the original message
+      const originalMessage = await client.getMessage(params.messageId);
+
+      // Create the draft as a reply
+      const draft = await client.createDraft({
+        to: params.to || [originalMessage.from],
+        subject: originalMessage.subject.startsWith("Re:") ? originalMessage.subject : `Re: ${originalMessage.subject}`,
+        content: params.body,
+        cc: params.cc,
+        bcc: params.bcc,
+        from: params.from,
+        inReplyTo: params.messageId,
+        threadId: originalMessage.threadId
+      });
+
+      return {
+        draftId: draft.id,
+        messageId: draft.message?.id,
+        threadId: draft.message?.threadId,
+        originalMessageId: params.messageId,
+        to: params.to || [originalMessage.from],
+        subject: draft.message?.subject,
+        from: params.from || "Me"
+      };
+    } catch (error) {
+      throw new Error(`Failed to create draft reply: ${error}`);
+    }
+  }
+};
+
+// Export draft tools
+export const draftTools = [
+  createDraftTool,
+  getDraftTool,
+  listDraftsTool,
+  updateDraftTool,
+  deleteDraftTool,
+  sendDraftTool,
+  createDraftReplyTool  // Add the new tool
+]; 

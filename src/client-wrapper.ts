@@ -88,14 +88,14 @@ export class GmailClientWrapper {
   async listMessages(options: PaginationOptions = {}): Promise<PaginatedResponse<EmailData>> {
     try {
       let query = options.query || '';
-      
+
       // Handle category search
       if (options.category) {
         switch (options.category) {
           case 'primary':
             // For Primary: in inbox but not in other categories
-            query = query ? `${query} in:inbox -category:{social promotions updates forums}` 
-                        : 'in:inbox -category:{social promotions updates forums}';
+            query = query ? `${query} in:inbox -category:{social promotions updates forums}`
+              : 'in:inbox -category:{social promotions updates forums}';
             break;
           case 'social':
             query = query ? `${query} category:social` : 'category:social';
@@ -120,7 +120,7 @@ export class GmailClientWrapper {
 
       // Ensure query is properly formatted
       query = query.trim();
-      
+
       // Handle special search operators
       if (query.includes('is:unread')) {
         query = query.replace(/is:unread/g, 'label:unread');
@@ -133,11 +133,11 @@ export class GmailClientWrapper {
       let finalNextPageToken: string | undefined = undefined;
       let totalResultSizeEstimate = 0;
       let currentPageToken = options.pageToken;
-      
+
       // Set the page size and maximum limit for automatic pagination
       const pageSize = options.pageSize || 25; // Default fetch 25 results
       const maxAutoFetchResults = options.maxAutoFetchResults || 100; // Maximum limit of 100 emails
-      
+
       // The loop for automatic pagination
       do {
         const response = await this.gmail.users.messages.list({
@@ -147,31 +147,31 @@ export class GmailClientWrapper {
           includeSpamTrash: options.includeSpamTrash,
           q: query
         });
-        
+
         const messages = response.data.messages || [];
-        
+
         // Use getMessage which has implemented timezone adjustment
         const messageDetails = await Promise.all(
           messages.map(msg => this.getMessage(msg.id!))
         );
-        
+
         // Add the results to the complete list
         allItems = [...allItems, ...messageDetails];
-        
+
         // Update the token for the next page
         currentPageToken = response.data.nextPageToken || undefined;
         finalNextPageToken = currentPageToken;
-        
+
         // Update the total result size estimate
         totalResultSizeEstimate = response.data.resultSizeEstimate || allItems.length;
-        
+
         // Check the stopping conditions for automatic pagination
         if (!options.autoFetchAll || allItems.length >= maxAutoFetchResults || !currentPageToken) {
           break;
         }
-        
+
       } while (true);
-      
+
       return {
         items: allItems,
         nextPageToken: finalNextPageToken,
@@ -193,14 +193,14 @@ export class GmailClientWrapper {
       const message = response.data;
       const headers = message.payload?.headers || [];
       const labels = message.labelIds || [];
-      
+
       // Determine email state from labels
       const isUnread = labels.includes('UNREAD');
       const isInInbox = labels.includes('INBOX');
-      
+
       // Determine category based on Gmail's category system
       let category: EmailData['category'] = undefined;
-      
+
       // Check for category based on Gmail's actual categorization
       if (isInInbox) {
         if (labels.some(l => l.startsWith('CATEGORY_'))) {
@@ -213,11 +213,11 @@ export class GmailClientWrapper {
           category = 'primary';
         }
       }
-      
+
       // Extract date information from headers
       const dateHeader = headers.find(h => h.name?.toLowerCase() === 'date')?.value;
       let timestamp: string | undefined = undefined;
-      
+
       if (dateHeader) {
         try {
           // Parse the date header and apply timezone offset
@@ -230,11 +230,11 @@ export class GmailClientWrapper {
           timestamp = dateHeader;
         }
       }
-      
+
       // Extract To and CC fields
       const to = (headers.find(h => h.name?.toLowerCase() === 'to')?.value || '').split(',').map(e => e.trim());
       const cc = headers.find(h => h.name?.toLowerCase() === 'cc')?.value?.split(',').map(e => e.trim()) || [];
-      
+
       return {
         threadId: message.threadId || undefined,
         messageId: message.id || messageId,
@@ -297,60 +297,60 @@ export class GmailClientWrapper {
       // Get all available send-as aliases
       const aliases = await this.getSendAsAliases();
       let fromAddress: string | undefined;
-      
+
       // First check if any of our addresses match the original email's recipients (To or CC)
       if (originalEmail.to && originalEmail.to.length > 0) {
         for (const toAddress of originalEmail.to) {
           const toEmail = this.extractEmailAddress(toAddress);
-          
-          const matchedAlias = aliases.find(alias => 
+
+          const matchedAlias = aliases.find(alias =>
             alias.sendAsEmail?.toLowerCase() === toEmail.toLowerCase()
           );
-          
+
           if (matchedAlias && matchedAlias.sendAsEmail) {
-            fromAddress = matchedAlias.displayName ? 
-              `${matchedAlias.displayName} <${matchedAlias.sendAsEmail}>` : 
+            fromAddress = matchedAlias.displayName ?
+              `${matchedAlias.displayName} <${matchedAlias.sendAsEmail}>` :
               matchedAlias.sendAsEmail;
             break;
           }
         }
       }
-      
+
       // Check also in the CC addresses if we didn't find a match in To
       if (!fromAddress && originalEmail.cc && originalEmail.cc.length > 0) {
         for (const ccAddress of originalEmail.cc) {
           const ccEmail = this.extractEmailAddress(ccAddress);
-          
-          const matchedAlias = aliases.find(alias => 
+
+          const matchedAlias = aliases.find(alias =>
             alias.sendAsEmail?.toLowerCase() === ccEmail.toLowerCase()
           );
-          
+
           if (matchedAlias && matchedAlias.sendAsEmail) {
-            fromAddress = matchedAlias.displayName ? 
-              `${matchedAlias.displayName} <${matchedAlias.sendAsEmail}>` : 
+            fromAddress = matchedAlias.displayName ?
+              `${matchedAlias.displayName} <${matchedAlias.sendAsEmail}>` :
               matchedAlias.sendAsEmail;
             break;
           }
         }
       }
-      
+
       // If we didn't find a suitable address, use the default address
       if (!fromAddress) {
         const defaultAlias = aliases.find(alias => alias.isDefault === true);
         if (defaultAlias && defaultAlias.sendAsEmail) {
-          fromAddress = defaultAlias.displayName ? 
-            `${defaultAlias.displayName} <${defaultAlias.sendAsEmail}>` : 
+          fromAddress = defaultAlias.displayName ?
+            `${defaultAlias.displayName} <${defaultAlias.sendAsEmail}>` :
             defaultAlias.sendAsEmail;
         }
       }
-      
+
       return fromAddress;
     } catch (error) {
       console.error('Error determining reply from address:', error);
       return undefined;
     }
   }
-  
+
   /**
    * Extract the email address from the format "Name <email@example.com>"
    */
@@ -358,7 +358,7 @@ export class GmailClientWrapper {
     const match = address.match(/<([^>]+)>/);
     return match ? match[1] : address;
   }
-  
+
   /**
    * Exclude own addresses from the recipient list
    * @param recipients - The recipient list
@@ -369,7 +369,7 @@ export class GmailClientWrapper {
       const myEmails = aliases
         .filter(alias => alias.sendAsEmail)
         .map(alias => alias.sendAsEmail!.toLowerCase());
-      
+
       return recipients.filter(recipient => {
         const email = this.extractEmailAddress(recipient).toLowerCase();
         return !myEmails.includes(email);
@@ -413,7 +413,7 @@ export class GmailClientWrapper {
     const parts = message.payload?.parts || [];
     const plainTextPart = parts.find(part => part.mimeType === 'text/plain');
     const htmlPart = parts.find(part => part.mimeType === 'text/html');
-    
+
     let content = '';
     if (plainTextPart?.body?.data) {
       content = Buffer.from(plainTextPart.body.data, 'base64').toString();
@@ -422,7 +422,7 @@ export class GmailClientWrapper {
     } else if (message.payload?.body?.data) {
       content = Buffer.from(message.payload.body.data, 'base64').toString();
     }
-    
+
     return content;
   }
 
@@ -477,7 +477,7 @@ export class GmailClientWrapper {
   }): Promise<string> {
     const encodedSubject = encodeEmailSubject(options.subject);
     const encodedContent = this.encodeEmailContent(options.content);
-    
+
     const headers = [
       `To: ${options.to.join(', ')}`,
       `Subject: ${encodedSubject}`,
@@ -493,12 +493,12 @@ export class GmailClientWrapper {
     // Encode the entire email content with Base64 to handle UTF-8 characters correctly
     const encodedEmailContent = Buffer.from(encodedContent).toString('base64');
     const email = `${headers}\r\n\r\n${encodedEmailContent}`;
-    
+
     return Buffer.from(email).toString('base64url');
   }
-  
+
   // Label management methods
-  
+
   async listLabels(): Promise<gmail_v1.Schema$Label[]> {
     try {
       const response = await this.gmail.users.labels.list({
@@ -509,7 +509,7 @@ export class GmailClientWrapper {
       throw new Error(`Failed to list labels: ${error}`);
     }
   }
-  
+
   async getLabel(labelId: string): Promise<gmail_v1.Schema$Label> {
     try {
       const response = await this.gmail.users.labels.get({
@@ -521,13 +521,13 @@ export class GmailClientWrapper {
       throw new Error(`Failed to get label ${labelId}: ${error}`);
     }
   }
-  
-  async createLabel(name: string, options?: { 
+
+  async createLabel(name: string, options?: {
     messageListVisibility?: 'show' | 'hide',
     labelListVisibility?: 'labelShow' | 'labelShowIfUnread' | 'labelHide',
-    color?: { 
-      textColor?: string, 
-      backgroundColor?: string 
+    color?: {
+      textColor?: string,
+      backgroundColor?: string
     }
   }): Promise<gmail_v1.Schema$Label> {
     try {
@@ -545,14 +545,14 @@ export class GmailClientWrapper {
       throw new Error(`Failed to create label "${name}": ${error}`);
     }
   }
-  
+
   async updateLabel(labelId: string, updates: {
     name?: string,
     messageListVisibility?: 'show' | 'hide',
     labelListVisibility?: 'labelShow' | 'labelShowIfUnread' | 'labelHide',
-    color?: { 
-      textColor?: string, 
-      backgroundColor?: string 
+    color?: {
+      textColor?: string,
+      backgroundColor?: string
     }
   }): Promise<gmail_v1.Schema$Label> {
     try {
@@ -566,7 +566,7 @@ export class GmailClientWrapper {
       throw new Error(`Failed to update label ${labelId}: ${error}`);
     }
   }
-  
+
   async deleteLabel(labelId: string): Promise<void> {
     try {
       await this.gmail.users.labels.delete({
@@ -577,7 +577,7 @@ export class GmailClientWrapper {
       throw new Error(`Failed to delete label ${labelId}: ${error}`);
     }
   }
-  
+
   async modifyMessageLabels(messageId: string, addLabelIds?: string[], removeLabelIds?: string[]): Promise<gmail_v1.Schema$Message> {
     try {
       const response = await this.gmail.users.messages.modify({
@@ -593,25 +593,25 @@ export class GmailClientWrapper {
       throw new Error(`Failed to modify labels for message ${messageId}: ${error}`);
     }
   }
-  
+
   // Convenience methods for common label operations
-  
+
   async markAsRead(messageId: string): Promise<gmail_v1.Schema$Message> {
     return this.modifyMessageLabels(messageId, [], ['UNREAD']);
   }
-  
+
   async markAsUnread(messageId: string): Promise<gmail_v1.Schema$Message> {
     return this.modifyMessageLabels(messageId, ['UNREAD'], []);
   }
-  
+
   async archiveMessage(messageId: string): Promise<gmail_v1.Schema$Message> {
     return this.modifyMessageLabels(messageId, [], ['INBOX']);
   }
-  
+
   async unarchiveMessage(messageId: string): Promise<gmail_v1.Schema$Message> {
     return this.modifyMessageLabels(messageId, ['INBOX'], []);
   }
-  
+
   async trashMessage(messageId: string): Promise<gmail_v1.Schema$Message> {
     return this.modifyMessageLabels(messageId, ['TRASH'], ['INBOX']);
   }
@@ -629,6 +629,7 @@ export class GmailClientWrapper {
     cc?: string[];
     bcc?: string[];
     inReplyTo?: string;
+    threadId?: string;
   }): Promise<DraftData> {
     try {
       const encodedEmail = await this.createEmailRaw({
@@ -645,6 +646,7 @@ export class GmailClientWrapper {
         requestBody: {
           message: {
             raw: encodedEmail,
+            threadId: options.threadId
           },
         },
       });
@@ -654,7 +656,7 @@ export class GmailClientWrapper {
         id: response.data.id || '',
         message: {
           id: response.data.message?.id === null ? undefined : response.data.message?.id,
-          threadId: response.data.message?.threadId === null ? undefined : response.data.message?.threadId,
+          threadId: response.data.message?.threadId === null ? undefined : response.data.message?.threadId || options.threadId,
           subject: options.subject,
           to: options.to,
           cc: options.cc,
@@ -662,7 +664,7 @@ export class GmailClientWrapper {
           content: options.content
         }
       };
-      
+
       return draft;
     } catch (error) {
       throw new Error(`Failed to create draft: ${error instanceof Error ? error.message : String(error)}`);
@@ -690,10 +692,10 @@ export class GmailClientWrapper {
       const toHeader = headers.find(h => h.name === 'To')?.value || '';
       const ccHeader = headers.find(h => h.name === 'Cc')?.value || '';
       const fromHeader = headers.find(h => h.name === 'From')?.value || '';
-      
+
       const to = toHeader ? toHeader.split(',').map(e => e.trim()) : [];
       const cc = ccHeader ? ccHeader.split(',').map(e => e.trim()) : [];
-      
+
       const content = this.extractContent(messageData);
 
       const draft: DraftData = {
@@ -777,7 +779,7 @@ export class GmailClientWrapper {
   }): Promise<DraftData> {
     try {
       const raw = await this.createEmailRaw(options);
-      
+
       const response = await this.gmail.users.drafts.update({
         userId: this.userId,
         id: draftId,
@@ -787,7 +789,7 @@ export class GmailClientWrapper {
           }
         }
       });
-      
+
       // Return updated draft data
       return {
         id: response.data.id || draftId,
@@ -853,7 +855,7 @@ export class GmailClientWrapper {
   async getAttachment(messageId: string, attachmentId: string): Promise<AttachmentData> {
     try {
       console.error(`Attempting to get attachment: messageId=${messageId}, attachmentId=${attachmentId}`);
-      
+
       // First check if the attachment exists in the message
       const message = await this.gmail.users.messages.get({
         userId: this.userId,
@@ -868,18 +870,18 @@ export class GmailClientWrapper {
       // Recursive function to find the attachment part
       const findAttachmentPart = (parts: gmail_v1.Schema$MessagePart[] | undefined, id: string): gmail_v1.Schema$MessagePart | null => {
         if (!parts) return null;
-        
+
         for (const part of parts) {
           if (part.body?.attachmentId === id) {
             return part;
           }
-          
+
           // If this ID doesn't match but the part has a filename, it might be an attachment
           // with a different ID. In this case, we'll display the ID from this part for comparison
           if (part.filename && part.filename.trim() !== '' && part.body?.attachmentId) {
             console.error(`Found attachment with filename "${part.filename}" and ID "${part.body.attachmentId}"`);
           }
-          
+
           // Recursively search in subparts
           if (part.parts) {
             const found = findAttachmentPart(part.parts, id);
@@ -895,17 +897,17 @@ export class GmailClientWrapper {
       // If we don't find the attachment with the provided ID, we'll try to use an available attachment (if it exists)
       if (!attachmentPart) {
         console.error(`Attachment part with ID "${attachmentId}" not found. Looking for available attachments...`);
-        
+
         // Find all available attachments
         let availableAttachmentPart: gmail_v1.Schema$MessagePart | null = null;
         const findAnyAttachment = (parts: gmail_v1.Schema$MessagePart[] | undefined): gmail_v1.Schema$MessagePart | null => {
           if (!parts) return null;
-          
+
           for (const part of parts) {
             if (part.filename && part.filename.trim() !== '' && part.body?.attachmentId) {
               return part;
             }
-            
+
             if (part.parts) {
               const found = findAnyAttachment(part.parts);
               if (found) return found;
@@ -913,9 +915,9 @@ export class GmailClientWrapper {
           }
           return null;
         };
-        
+
         availableAttachmentPart = findAnyAttachment(message.data.payload.parts);
-        
+
         if (availableAttachmentPart) {
           console.error(`Using available attachment with filename "${availableAttachmentPart.filename}" and ID "${availableAttachmentPart.body?.attachmentId}"`);
           // Replace the attachment ID with the found one
@@ -937,16 +939,16 @@ export class GmailClientWrapper {
       if (!response.data) {
         throw new Error('Attachment data not found in API response');
       }
-      
+
       // Use the found (or replaced) attachment again
       const finalAttachmentPart = findAttachmentPart(message.data.payload.parts, attachmentId);
-      
+
       if (!finalAttachmentPart) {
         throw new Error('Attachment metadata lost during processing');
       }
 
       console.error(`Successfully retrieved attachment with ID "${attachmentId}"`);
-      
+
       return {
         id: attachmentId,
         filename: finalAttachmentPart.filename ?? 'unnamed-attachment',
@@ -971,14 +973,14 @@ export class GmailClientWrapper {
         id: messageId,
         format: 'full',
       });
-      
+
       const message = response.data;
       const attachments: AttachmentData[] = [];
-      
+
       // Function to recursively find parts with attachments
       const findAttachments = (parts: gmail_v1.Schema$MessagePart[] | undefined): void => {
         if (!parts) return;
-        
+
         for (const part of parts) {
           if (part.filename && part.filename.trim() !== '' && part.body?.attachmentId) {
             attachments.push({
@@ -989,17 +991,17 @@ export class GmailClientWrapper {
               data: '' // We don't fetch the actual data here
             });
           }
-          
+
           // Recursively check for attachments in nested parts
           if (part.parts) {
             findAttachments(part.parts);
           }
         }
       };
-      
+
       // Process all parts of the message
       findAttachments(message.payload?.parts);
-      
+
       return attachments;
     } catch (error) {
       throw new Error(`Failed to list attachments for message ${messageId}: ${error instanceof Error ? error.message : String(error)}`);

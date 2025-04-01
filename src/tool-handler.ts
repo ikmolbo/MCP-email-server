@@ -1,7 +1,8 @@
 import { Tool, CallToolRequest, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { GmailClientWrapper } from "./client-wrapper.js";
 import { readEmailTool } from "./tools/email-read-tools.js";
-import { sendEmailTool, replyAllEmailTool, listSendAsAccountsTool, forwardEmailTool } from "./tools/email-send-tools.js";
+// import { sendEmailTool, replyAllEmailTool, listSendAsAccountsTool, forwardEmailTool } from "./tools/email-send-tools.js";
+import { listSendAsAccountsTool } from "./tools/email-send-tools.js";
 import { searchEmailsTool, getRecentEmailsTool } from "./tools/email-search-tools.js";
 import {
   listLabelsTool,
@@ -23,7 +24,7 @@ import {
   listDraftsTool,
   updateDraftTool,
   deleteDraftTool,
-  sendDraftTool,
+  // sendDraftTool,
   createDraftReplyTool
 } from "./tools/email-draft-tools.js";
 import {
@@ -41,9 +42,9 @@ export type ExtendedTool = Tool & {
 
 export const tools = [
   readEmailTool,
-  sendEmailTool,
-  replyAllEmailTool,
-  forwardEmailTool,
+  // sendEmailTool,
+  // replyAllEmailTool,
+  // forwardEmailTool,
   listSendAsAccountsTool,
   searchEmailsTool,
   getRecentEmailsTool,
@@ -70,7 +71,7 @@ export const tools = [
   listDraftsTool,
   updateDraftTool,
   deleteDraftTool,
-  sendDraftTool,
+  // sendDraftTool,
 
   // Attachment management tools
   listAttachmentsTool,

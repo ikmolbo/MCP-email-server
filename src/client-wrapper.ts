@@ -380,6 +380,7 @@ export class GmailClientWrapper {
     }
   }
 
+  /**
   async sendMessage(options: {
     to: string[];
     subject: string;
@@ -408,6 +409,7 @@ export class GmailClientWrapper {
       throw new Error(`Failed to send message: ${error}`);
     }
   }
+  */
 
   private extractContent(message: gmail_v1.Schema$Message): string {
     const parts = message.payload?.parts || [];
@@ -825,6 +827,7 @@ export class GmailClientWrapper {
   /**
    * Send an existing draft
    */
+  /**
   async sendDraft(draftId: string): Promise<{ messageId?: string; threadId?: string }> {
     try {
       const response = await this.gmail.users.drafts.send({
@@ -846,7 +849,8 @@ export class GmailClientWrapper {
       throw new Error(`Failed to send draft: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-
+  */
+  
   // Attachment management methods
 
   /**
